@@ -73,6 +73,39 @@ def test_good_better_best_ordering():
     assert by["Aggressive"].delta_cooling_kwh > by["Balanced"].delta_cooling_kwh
 
 
+def test_cooling_cop_scales_savings_and_echoes_provenance():
+    base_kw = dict(
+        project_id="cop", building_type="MediumOffice", climate_zone="2A",
+        gross_floor_area_sf=14500, zip="33540", utility_rate_usd_kwh=0.1145,
+        faces=[EngineFace(o, a, "dbl_clear_3mm_13mmAir") for o, a in [("S", 873), ("W", 874)]],
+        scenarios=[EngineScenario("Good", "3M-PR40X", 20000)],
+    )
+    low = _run(_project(hvac_cooling_cop=2.5, **base_kw))[2]
+    high = _run(_project(hvac_cooling_cop=5.0, **base_kw))[2]
+    # A less efficient cooling system saves more $ per unit of solar rejected.
+    assert low.films[0].delta_cost_usd_per_year > high.films[0].delta_cost_usd_per_year
+    # Resolved building echoes the user COP and flags un-supplied fields as default.
+    assert low.building["cooling_cop"] == 2.5
+    assert low.building["sources"]["cooling_cop"] == "user"
+    assert low.building["sources"]["wall_u_factor"] == "default"
+
+
+def test_window_conduction_and_orientation_peaks():
+    proj = _project(
+        project_id="cond", building_type="MediumOffice", climate_zone="6A",
+        gross_floor_area_sf=20000, zip="55303", utility_rate_usd_kwh=0.105,
+        faces=[EngineFace("W", 1000, "dbl_clear_3mm_13mmAir"),
+               EngineFace("N", 1000, "dbl_clear_3mm_13mmAir")],
+        scenarios=[EngineScenario("Good", "3M-PR40X", 20000)],
+    )
+    _, baseline, _ = _run(proj)
+    by_orient = {x.surface_name.split("_")[1]: x for x in baseline.windows}
+    # Cold climate -> winter conduction loss is now populated (was hard-coded 0).
+    assert all(x.annual_heat_loss_kwh > 0 for x in baseline.windows)
+    # West sees a higher cooling-design peak than north.
+    assert by_orient["W"].peak_heat_gain_rate_w > by_orient["N"].peak_heat_gain_rate_w
+
+
 def test_unknown_film_raises():
     proj = _project(
         project_id="bad", building_type="MediumOffice", climate_zone="2A",

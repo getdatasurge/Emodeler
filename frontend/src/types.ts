@@ -36,7 +36,25 @@ export interface ScenarioStored {
   installed_cost_usd: number;
 }
 
-export interface Project {
+// Optional as-built building characterization (spec Ch 5.3). Blank values fall
+// back to prototype / climate-zone defaults at calc time.
+export interface BuildingInputs {
+  hvac_cooling_cop?: number | null;
+  hvac_heating_cop?: number | null;
+  hvac_system_type?: string | null;
+  wall_area_sf?: number | null;
+  wall_u_factor?: number | null;
+  wall_absorptance?: number | null;
+  roof_area_sf?: number | null;
+  roof_type?: string | null;
+  roof_u_factor?: number | null;
+  roof_absorptance?: number | null;
+  operating_hours_per_week?: number | null;
+  num_floors?: number | null;
+  floor_to_floor_ft?: number | null;
+}
+
+export interface Project extends BuildingInputs {
   id: string;
   name: string;
   customer_name: string | null;
@@ -72,7 +90,7 @@ export interface ScenarioInput {
   installed_cost_usd: number;
 }
 
-export interface ProjectCreate {
+export interface ProjectCreate extends BuildingInputs {
   name: string;
   customer_name?: string | null;
   address_line1?: string | null;

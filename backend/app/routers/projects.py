@@ -4,6 +4,8 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from energy_modeler.engine.inputs import BUILDING_FIELDS
+
 from .. import lookups
 from ..db import get_session
 from ..models import CalculationJob, Face, Project, Scenario
@@ -30,6 +32,7 @@ def _serialize(project: Project) -> dict:
         "utility_rate_usd_kwh": project.utility_rate_usd_kwh,
         "utility_rate_source": project.utility_rate_source,
         "egrid_subregion": project.egrid_subregion,
+        **{k: getattr(project, k) for k in BUILDING_FIELDS},
         "status": project.status,
         "faces": [
             {"id": f.id, "orientation": f.orientation, "area_sqft": f.area_sqft,
@@ -68,6 +71,8 @@ def create_project(body: ProjectCreate, session: Session = Depends(get_session))
         utility_rate_usd_kwh=utility_rate, utility_rate_source=rate_source,
         egrid_subregion=egrid_subregion,
     )
+    for k in BUILDING_FIELDS:
+        setattr(project, k, getattr(body, k))
     for f in body.faces:
         project.faces.append(Face(orientation=f.orientation, area_sqft=f.area_sqft,
                                   base_glazing_id=f.base_glazing_id, count=f.count, notes=f.notes))
