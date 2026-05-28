@@ -20,7 +20,10 @@ RUN pip3 install --no-cache-dir --break-system-packages -r requirements-worker.t
 
 COPY . /app/
 
-ENV ENERGYPLUS_DIR=/usr/local/bin \
+# ENERGYPLUS_DIR must hold both the `energyplus` binary and Energy+.idd. The
+# nrel/energyplus:24.2.0 image installs to /usr/local/EnergyPlus-24-2-0 (verify
+# with `docker run --rm nrel/energyplus:24.2.0 ls /usr/local` if it moves).
+ENV ENERGYPLUS_DIR=/usr/local/EnergyPlus-24-2-0 \
     PROTOTYPES_DIR=/opt/energyplus/prototypes \
     EGRID_DATA_DIR=/app/energy_modeler/data
 

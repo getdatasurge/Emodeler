@@ -12,8 +12,11 @@ services:
     environment:
       DATABASE_URL: sqlite:////data/energy_modeler.db
       STORAGE_DIR: /data/storage
-      # NREL_API_KEY: ${NREL_API_KEY:-}
-      # IGSDB_API_TOKEN: ${IGSDB_API_TOKEN:-}
+      NREL_API_KEY: ${NREL_API_KEY:-}
+      IGSDB_API_TOKEN: ${IGSDB_API_TOKEN:-}
+      # Set REDIS_URL=redis://redis:6379/0 (with --profile full) so the API
+      # enqueues jobs to the EnergyPlus worker instead of running them inline.
+      REDIS_URL: ${REDIS_URL:-}
     volumes:
       - api_data:/data
 
@@ -47,6 +50,8 @@ services:
       REDIS_URL: redis://redis:6379/0
       DATABASE_URL: sqlite:////data/energy_modeler.db
       STORAGE_DIR: /data/storage
+      NREL_API_KEY: ${NREL_API_KEY:-}
+      IGSDB_API_TOKEN: ${IGSDB_API_TOKEN:-}
     volumes:
       - api_data:/data
     depends_on:
