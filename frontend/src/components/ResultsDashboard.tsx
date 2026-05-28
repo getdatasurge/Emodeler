@@ -4,6 +4,7 @@ import { currency, integerWithCommas, irr, kw, payback } from '../format';
 import { recommendedIndex } from '../recommend';
 import { Button, Card } from './ui';
 import { CompareBars, MonthlyBars } from './charts';
+import { DataSources } from './DataSources';
 
 const ORIENTATION_NAMES: Record<string, string> = {
   S: 'South',
@@ -226,15 +227,21 @@ export function ResultsDashboard({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-lg font-semibold text-ink">Results</h2>
         <div className="flex gap-2">
-          <a href={reportUrl(jobId)} target="_blank" rel="noreferrer">
-            <Button>Open Branded Report</Button>
-          </a>
-          <a href={reportPdfUrl(jobId)} target="_blank" rel="noreferrer">
-            <Button variant="secondary">Download PDF</Button>
-          </a>
-          <a href={auditBundleUrl(jobId)}>
-            <Button variant="secondary">Download Audit Bundle (.zip)</Button>
-          </a>
+          <Button onClick={() => window.open(reportUrl(jobId), '_blank', 'noopener')}>
+            Open Branded Report
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={() => window.open(reportPdfUrl(jobId), '_blank', 'noopener')}
+          >
+            Download PDF
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={() => window.open(auditBundleUrl(jobId), '_blank', 'noopener')}
+          >
+            Download Audit Bundle (.zip)
+          </Button>
         </div>
       </div>
 
@@ -300,6 +307,8 @@ export function ResultsDashboard({
         <h3 className="mb-3 font-semibold text-ink">Scenario comparison</h3>
         <ComparisonTable comparison={comparison} />
       </Card>
+
+      <DataSources />
     </div>
   );
 }
