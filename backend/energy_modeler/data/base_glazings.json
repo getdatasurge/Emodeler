@@ -6,10 +6,22 @@
     "igsdb_construction": [102]
   },
   {
+    "id": "sgl_clear_6mm", "display_name": "Single pane clear (6mm)",
+    "description": "Monolithic clear float glass, 6mm.",
+    "layer_count": 1, "u_factor_btuhrft2F": 1.03, "shgc": 0.79, "vt": 0.88,
+    "igsdb_construction": [103]
+  },
+  {
     "id": "sgl_bronze_6mm", "display_name": "Single pane bronze (6mm)",
     "description": "Monolithic bronze-tinted float glass, 6mm.",
     "layer_count": 1, "u_factor_btuhrft2F": 1.03, "shgc": 0.71, "vt": 0.54,
     "igsdb_construction": [2026]
+  },
+  {
+    "id": "sgl_reflective_6mm", "display_name": "Single pane reflective (6mm)",
+    "description": "Pyrolytic reflective-coated single pane, 6mm. Common on 1980s commercial stock.",
+    "layer_count": 1, "u_factor_btuhrft2F": 1.00, "shgc": 0.34, "vt": 0.20,
+    "igsdb_construction": [5012]
   },
   {
     "id": "dbl_clear_3mm_13mmAir", "display_name": "Dual pane clear (3mm / 13mm air / 3mm)",
@@ -22,5 +34,17 @@
     "description": "Dual-pane IGU with a soft-coat low-E on the inner pane #3 surface.",
     "layer_count": 2, "u_factor_btuhrft2F": 0.30, "shgc": 0.39, "vt": 0.70,
     "igsdb_construction": [102, "air_13mm", 9805]
+  },
+  {
+    "id": "dbl_lowE_argon", "display_name": "Dual pane low-E argon (3mm / 13mm argon / 3mm low-E)",
+    "description": "Dual-pane low-E IGU with an argon fill — current commercial new-construction baseline.",
+    "layer_count": 2, "u_factor_btuhrft2F": 0.24, "shgc": 0.38, "vt": 0.70,
+    "igsdb_construction": [102, "argon_13mm", 9805]
+  },
+  {
+    "id": "triple_clear_lowE_argon", "display_name": "Triple pane low-E argon",
+    "description": "Triple-pane IGU, two argon gaps, low-E coating. High-performance cold-climate glazing.",
+    "layer_count": 3, "u_factor_btuhrft2F": 0.15, "shgc": 0.47, "vt": 0.66,
+    "igsdb_construction": [102, "argon_13mm", 9805, "argon_13mm", 102]
   }
 ]

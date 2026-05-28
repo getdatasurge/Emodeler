@@ -2,14 +2,46 @@
 fresh install has something to run immediately."""
 from __future__ import annotations
 
+from energy_modeler import datastore
+
 from .db import SessionLocal
-from .models import CalculationJob, Face, Project, Scenario
+from .models import (
+    DEFAULT_ORG_ID,
+    BaseGlazing,
+    CalculationJob,
+    Face,
+    Organization,
+    Project,
+    Scenario,
+)
+
+
+def _seed_reference(session) -> None:
+    """Idempotently seed the single org + the base-glazing catalog into the DB."""
+    if session.get(Organization, DEFAULT_ORG_ID) is None:
+        session.add(Organization(id=DEFAULT_ORG_ID, name="Sustainable Finishes"))
+    if session.query(BaseGlazing).count() == 0:
+        for g in datastore.base_glazings():
+            session.add(
+                BaseGlazing(
+                    id=g["id"],
+                    display_name=g["display_name"],
+                    description=g.get("description"),
+                    layer_count=g["layer_count"],
+                    u_factor_btuhrft2F=g["u_factor_btuhrft2F"],
+                    shgc=g["shgc"],
+                    vt=g["vt"],
+                    igsdb_construction=g["igsdb_construction"],
+                )
+            )
+    session.commit()
 
 
 def seed_demo() -> None:
     session = SessionLocal()
     job_id: str | None = None
     try:
+        _seed_reference(session)
         if session.query(Project).count() > 0:
             return
         project = Project(
