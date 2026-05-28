@@ -39,6 +39,9 @@ def test_fx01_zephyrhills_plausible():
     assert f.delta_total_kwh > 0
     assert f.delta_co2_lb_per_year > 0
     assert f.delta_co2e_kg_per_year > 0
+    # Monthly cooling-savings profile sums to the annual cooling delta.
+    assert len(f.monthly_cooling_savings_kwh) == 12
+    assert abs(sum(f.monthly_cooling_savings_kwh) - f.delta_cooling_kwh) < 5.0
     assert not math.isnan(f.simple_payback_years) and f.simple_payback_years > 0
     # Loose envelope around the dealer Excel sanity point ($5,594/yr, 7.8 yr).
     assert 3000 < f.delta_cost_usd_per_year < 9000

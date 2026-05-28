@@ -3,7 +3,7 @@ import type { Comparison, RunResult } from '../types';
 import { currency, integerWithCommas, irr, kw, payback } from '../format';
 import { recommendedIndex } from '../recommend';
 import { Button, Card } from './ui';
-import { CompareBars } from './charts';
+import { CompareBars, MonthlyBars } from './charts';
 
 const ORIENTATION_NAMES: Record<string, string> = {
   S: 'South',
@@ -276,6 +276,19 @@ export function ResultsDashboard({
           <EndUseCard baseline={comparison.baseline} after={recRun} />
           <SolarCard baseline={comparison.baseline} after={recRun} />
         </div>
+      )}
+
+      {rec?.monthly_cooling_savings_kwh && rec.monthly_cooling_savings_kwh.length === 12 && (
+        <Card>
+          <h3 className="mb-1 font-semibold text-ink">Monthly cooling savings</h3>
+          <p className="mb-4 text-xs text-ink/50">
+            {rec.scenario_label} · {rec.film_sku} — cooling kWh avoided by month
+          </p>
+          <MonthlyBars
+            values={rec.monthly_cooling_savings_kwh}
+            fmt={(n) => `${integerWithCommas(n)} kWh`}
+          />
+        </Card>
       )}
 
       <div className="grid gap-6 lg:grid-cols-2">

@@ -203,6 +203,7 @@ export interface ScenarioResult {
   simple_payback_years: number; // -1 == n/a
   npv_15yr_usd: number;
   irr_15yr_pct: number; // -1 == n/a
+  monthly_cooling_savings_kwh?: number[]; // 12 (Jan..Dec)
 }
 
 export interface JobProgress {
@@ -247,6 +248,7 @@ export interface RunResult {
   annual_end_uses: EnergyEndUses;
   peak_demand: { total_facility_peak_kw: number; cooling_peak_kw: number };
   windows: WindowResult[];
+  monthly_cooling_kwh?: number[];
   sim_runtime_seconds: number;
   warnings: string[];
 }

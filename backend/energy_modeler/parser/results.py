@@ -46,6 +46,13 @@ def build_comparison(
         delta_co2 = round(carbon.lb_co2_avoided(delta_total, project.zip), 1)
         delta_co2e = round(carbon.co2e_kg_avoided(delta_total, project.zip), 1)
 
+        monthly_savings: list[float] = []
+        if len(baseline.monthly_cooling_kwh) == 12 and len(run.monthly_cooling_kwh) == 12:
+            monthly_savings = [
+                round(b - f, 1)
+                for b, f in zip(baseline.monthly_cooling_kwh, run.monthly_cooling_kwh)
+            ]
+
         payback = economics.simple_payback(cost, delta_cost)
         npv = economics.npv(
             delta_cost, opts.film_life_yrs, opts.discount_rate, cost, opts.utility_escalation
@@ -70,6 +77,7 @@ def build_comparison(
                 simple_payback_years=_nan_to_none(payback),
                 npv_15yr_usd=round(npv, 2),
                 irr_15yr_pct=_nan_to_none(irr_pct),
+                monthly_cooling_savings_kwh=monthly_savings,
             )
         )
 

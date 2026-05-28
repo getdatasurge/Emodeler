@@ -17,6 +17,33 @@ export function MiniBar({
   );
 }
 
+const MONTHS = ['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D'];
+
+// 12 vertical bars (Jan..Dec).
+export function MonthlyBars({
+  values,
+  fmt,
+}: {
+  values: number[];
+  fmt: (n: number) => string;
+}) {
+  const max = Math.max(1, ...values.map((v) => Math.abs(v)));
+  return (
+    <div className="flex h-36 items-end gap-1.5">
+      {values.map((v, i) => (
+        <div key={i} className="flex flex-1 flex-col items-center justify-end">
+          <div
+            className="w-full rounded-t bg-amber"
+            style={{ height: `${Math.max(2, (Math.abs(v) / max) * 100)}%` }}
+            title={fmt(v)}
+          />
+          <span className="mt-1 text-[10px] text-ink/50">{MONTHS[i]}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export interface CompareRow {
   label: string;
   before: number;

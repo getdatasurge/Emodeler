@@ -46,6 +46,7 @@ class RunResult(BaseModel):
     annual_end_uses: EnergyEndUses
     peak_demand: PeakDemand
     windows: list[WindowSurfaceResult] = Field(default_factory=list)
+    monthly_cooling_kwh: list[float] = Field(default_factory=list)  # 12 (Jan..Dec)
     sim_runtime_seconds: float = 0.0
     warnings: list[str] = Field(default_factory=list)
 
@@ -65,6 +66,7 @@ class FilmComparison(BaseModel):
     simple_payback_years: float
     npv_15yr_usd: float
     irr_15yr_pct: float
+    monthly_cooling_savings_kwh: list[float] = Field(default_factory=list)  # 12 (Jan..Dec)
 
 
 class ProjectComparison(BaseModel):
