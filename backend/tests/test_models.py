@@ -23,10 +23,10 @@ def test_reference_data_seeded(client):
 def test_new_tables_crud(client):
     s = SessionLocal()
     try:
-        s.add(ZipLookupCache(zip="33540", kind="solar", payload={"ghi": 1700}))
-        s.add(AuditLog(action="project.create", target_table="projects", target_id="x"))
+        s.add(ZipLookupCache(zip="00001", kind="unit_test", payload={"ghi": 1700}))
+        s.add(AuditLog(action="unit_test.create", target_table="projects", target_id="x"))
         s.commit()
-        assert s.query(ZipLookupCache).filter_by(zip="33540", kind="solar").count() == 1
-        assert s.query(AuditLog).filter_by(action="project.create").count() == 1
+        assert s.query(ZipLookupCache).filter_by(zip="00001", kind="unit_test").count() == 1
+        assert s.query(AuditLog).filter_by(action="unit_test.create").count() == 1
     finally:
         s.close()
