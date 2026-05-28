@@ -1,0 +1,25 @@
+# Render blueprint — deploys the EnergyModeler FastAPI backend from its
+# Dockerfile. In the Render dashboard: New + → Blueprint → pick this repo.
+# Docs: https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: energymodeler-api
+    runtime: docker
+    plan: free
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: DATABASE_URL
+        value: sqlite:////data/energy_modeler.db
+      - key: STORAGE_DIR
+        value: /data/storage
+      # Optional live data sources (set in the dashboard, do not commit):
+      # - key: NREL_API_KEY
+      #   sync: false
+      # - key: IGSDB_API_TOKEN
+      #   sync: false
+# Note: the free plan has no persistent disk, so the SQLite DB + audit bundles
+# are ephemeral (the demo project re-seeds on each cold start). Add a Render
+# disk mounted at /data for persistence.

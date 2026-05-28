@@ -73,10 +73,12 @@ deployment → Source: GitHub Actions**. The site lands at
 
 > GitHub Pages is static-only and **cannot host the FastAPI backend.** Out of the
 > box the published site is a UI preview that shows a "backend not reachable"
-> notice. To make it fully functional, deploy the backend (e.g. Fly.io/Render,
-> per spec Ch 9) and set a repo **Variable** `VITE_API_BASE` to its URL — the
-> Pages build injects it, and the backend already allows CORS. Locally:
-> `cd frontend && VITE_BASE=/Emodeler/ VITE_API_BASE=https://your-backend npm run build`.
+> notice. To make it fully functional, **deploy the backend** and set a repo
+> **Variable** `VITE_API_BASE` to its URL — the Pages build injects it, and the
+> backend already allows CORS. Full step-by-step (Render / Fly.io / Railway) is
+> in **[docs/DEPLOY.md](docs/DEPLOY.md)**. Deploy configs are included:
+> [`render.yaml`](render.yaml) (blueprint) and [`backend/fly.toml`](backend/fly.toml);
+> the API image binds the host's `$PORT`.
 
 ---
 
