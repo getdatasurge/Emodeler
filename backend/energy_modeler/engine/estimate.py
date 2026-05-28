@@ -154,8 +154,32 @@ def _cooling_elec(window_cooling_thermal: float, cooling_cop: float) -> float:
     return window_cooling_thermal * COOLING_PICKUP / cooling_cop
 
 
+def _monthly_window_cooling(
+    project: EngineProject, shgc_provider, cooling_cop: float
+) -> list[float]:
+    """12 monthly window-driven cooling-electricity values (kWh, Jan..Dec)."""
+    poa = weather.monthly_poa_by_face(project.zip, project.climate_zone)
+    weights = _cooling_weights(project.climate_zone)
+    monthly = [0.0] * 12
+    for face in project.faces:
+        base = datastore.get_base_glazing(face.base_glazing_id)
+        if base is None:
+            continue
+        area_m2 = face.area_sqft * SF_TO_M2
+        shgc = shgc_provider(base)
+        months = poa.get(face.orientation, [0.0] * 12)
+        for m in range(12):
+            thermal = months[m] * area_m2 * shgc * weights[m]
+            monthly[m] += thermal * COOLING_PICKUP / cooling_cop
+    return monthly
+
+
 def _make_run(
-    label: str, end_uses: EnergyEndUses, station: str, windows: list[WindowSurfaceResult]
+    label: str,
+    end_uses: EnergyEndUses,
+    station: str,
+    windows: list[WindowSurfaceResult],
+    monthly: list[float] | None = None,
 ) -> RunResult:
     return RunResult(
         run_id=str(uuid.uuid4()),
@@ -170,6 +194,7 @@ def _make_run(
             cooling_peak_kw=round(end_uses.cooling_elec_kwh / COOLING_HOURS_TO_PEAK_KW, 2),
         ),
         windows=windows,
+        monthly_cooling_kwh=[round(x, 1) for x in (monthly or [])],
         warnings=[ESTIMATE_WARNING],
     )
 
@@ -212,9 +237,12 @@ def run_project(project: EngineProject) -> tuple[RunResult, list[RunResult]]:
         ),
         total_gas_kwh=0.0,
     )
+    nonwindow_month = nonwindow_cooling / 12.0
+    base_monthly = [nonwindow_month + x for x in _monthly_window_cooling(project, base_shgc, bldg.cooling_cop)]
     baseline = _make_run(
         "baseline", base_uses, station,
         _window_results(project, lambda b: glazing.base_properties(b), bldg),
+        monthly=base_monthly,
     )
 
     film_runs: list[RunResult] = []
@@ -247,10 +275,15 @@ def run_project(project: EngineProject) -> tuple[RunResult, list[RunResult]]:
             ),
             total_gas_kwh=0.0,
         )
+        film_monthly = [
+            nonwindow_month + x
+            for x in _monthly_window_cooling(project, applied_shgc, bldg.cooling_cop)
+        ]
         film_runs.append(
             _make_run(
                 scenario.label, film_uses, station,
                 _window_results(project, lambda b, _f=film: glazing.applied_properties(b, _f), bldg),
+                monthly=film_monthly,
             )
         )
     return baseline, film_runs

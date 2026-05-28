@@ -11,6 +11,21 @@ SQLAlchemy==2.0.36
 # HTTP client for upstream data sources (NREL / IGSDB / OpenEI)
 httpx==0.28.1
 
+# Auth (Supabase JWT validation) + error monitoring. Both are optional at
+# runtime: auth stays permissive until AUTH_ENFORCED=true, Sentry no-ops
+# unless SENTRY_DSN is set.
+PyJWT==2.10.1
+sentry-sdk[fastapi]==2.20.0
+
+# Branded report PDF (spec Ch 10.5). The Python package installs without native
+# deps; rendering needs pango (installed in the Docker images). The /pdf endpoint
+# degrades to 503 where the libs are absent — the HTML report always works.
+weasyprint==63.1
+
+# Audit-bundle object storage on Cloudflare R2 / S3 (spec Ch 11). Imported lazily
+# and only used when R2_* env vars are set; otherwise bundles serve from disk.
+boto3==1.35.90
+
 # EnergyPlus IDF generation (optional at runtime — engine degrades gracefully
 # to a labeled analytical estimate when eppy / the E+ binary are absent)
 # eppy==0.5.63

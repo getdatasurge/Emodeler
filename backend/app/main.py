@@ -3,15 +3,28 @@ from __future__ import annotations
 
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from energy_modeler import __version__
 from energy_modeler.config import settings
 
+from .auth import require_auth
 from .db import init_db
+from .errors import install_error_handling
 from .routers import calc, films, jobs, lookups, projects, reports
 from .seed import seed_demo
+
+
+def _init_sentry() -> None:
+    """No-op unless SENTRY_DSN is set (and sentry-sdk is installed)."""
+    if not settings.sentry_dsn:
+        return
+    try:
+        import sentry_sdk
+    except ImportError:
+        return
+    sentry_sdk.init(dsn=settings.sentry_dsn, traces_sample_rate=0.1, send_default_pii=False)
 
 
 @asynccontextmanager
@@ -20,6 +33,8 @@ async def lifespan(app: FastAPI):
     seed_demo()
     yield
 
+
+_init_sentry()
 
 app = FastAPI(
     title="EnergyModeler API",
@@ -34,9 +49,12 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+install_error_handling(app)
 
+# require_auth is permissive until AUTH_ENFORCED=true (spec Ch 1.1); health/meta
+# and the docs stay open.
 for r in (lookups, films, projects, calc, jobs, reports):
-    app.include_router(r.router)
+    app.include_router(r.router, dependencies=[Depends(require_auth)])
 
 
 @app.get("/api/health")

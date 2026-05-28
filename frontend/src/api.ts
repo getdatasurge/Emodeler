@@ -1,10 +1,12 @@
 // Typed fetch wrapper + endpoint helpers. Uses plain fetch; /api is proxied to
 // the backend by Vite (dev) or served same-origin (prod).
+import { getAccessToken } from './auth/supabase';
 import type {
   BaseGlazing,
   CalcRunRequest,
   CalcRunResponse,
   ClimateZone,
+  Comparison,
   Egrid,
   FaceInput,
   Film,
@@ -36,10 +38,15 @@ export class ApiError extends Error {
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let resp: Response;
+  const token = getAccessToken();
   try {
     resp = await fetch(`${API_BASE}${path}`, {
-      headers: { 'Content-Type': 'application/json' },
       ...init,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(init?.headers as Record<string, string> | undefined),
+      },
     });
   } catch (e) {
     throw new ApiError(
@@ -67,11 +74,18 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 function extractError(body: unknown): string | null {
-  if (body && typeof body === 'object' && 'detail' in body) {
-    const d = (body as { detail: unknown }).detail;
-    if (typeof d === 'string') return d;
-    if (d && typeof d === 'object' && 'error' in d) {
-      return String((d as { error: unknown }).error);
+  if (body && typeof body === 'object') {
+    // New standard envelope: {error, code, request_id, details?}.
+    if ('error' in body && typeof (body as { error: unknown }).error === 'string') {
+      return (body as { error: string }).error;
+    }
+    // Legacy FastAPI shape: {detail: "..."} or {detail: {error: "..."}}.
+    if ('detail' in body) {
+      const d = (body as { detail: unknown }).detail;
+      if (typeof d === 'string') return d;
+      if (d && typeof d === 'object' && 'error' in d) {
+        return String((d as { error: unknown }).error);
+      }
     }
   }
   return null;
@@ -108,8 +122,14 @@ export const api = {
       body: JSON.stringify(body),
     }),
   getJob: (jobId: string) => request<Job>(`/api/jobs/${jobId}`),
+  jobResults: (jobId: string) => request<Comparison>(`/api/jobs/${jobId}/results`),
+  projectResults: (projectId: string) =>
+    request<{ job_id: string; engine_mode: string; comparison: Comparison }>(
+      `/api/projects/${projectId}/results`,
+    ),
 };
 
 // Absolute-ish URLs for links the browser opens directly (reports / downloads).
 export const reportUrl = (jobId: string) => `${API_BASE}/api/reports/${jobId}`;
+export const reportPdfUrl = (jobId: string) => `${API_BASE}/api/reports/${jobId}/pdf`;
 export const auditBundleUrl = (jobId: string) => `${API_BASE}/api/jobs/${jobId}/audit-bundle`;

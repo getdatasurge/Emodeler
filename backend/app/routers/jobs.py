@@ -4,8 +4,10 @@ from __future__ import annotations
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from sqlalchemy.orm import Session
+
+from energy_modeler.objectstore import object_store
 
 from ..db import get_session
 from ..models import CalculationJob
@@ -59,6 +61,11 @@ def get_audit_bundle(job_id: str, session: Session = Depends(get_session)):
     if job is None or not job.audit_bundle_path:
         raise HTTPException(status_code=404, detail={"error": "No audit bundle",
                             "code": "NOT_FOUND", "details": {"job_id": job_id}})
+    # When R2 is configured, redirect to a 7-day signed URL; else serve locally.
+    if object_store.enabled():
+        url = object_store.signed_url(object_store.audit_key(job_id))
+        if url:
+            return RedirectResponse(url)
     path = Path(job.audit_bundle_path)
     if not path.exists():
         raise HTTPException(status_code=404, detail={"error": "Audit bundle file missing",

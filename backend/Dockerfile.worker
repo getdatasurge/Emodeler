@@ -6,6 +6,7 @@ FROM nrel/energyplus:24.2.0
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 python3-venv python3-pip \
     libxml2 libxslt1.1 \
+    libpango-1.0-0 libpangoft2-1.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

@@ -203,11 +203,85 @@ export interface ScenarioResult {
   simple_payback_years: number; // -1 == n/a
   npv_15yr_usd: number;
   irr_15yr_pct: number; // -1 == n/a
+  monthly_cooling_savings_kwh?: number[]; // 12 (Jan..Dec)
 }
 
 export interface JobProgress {
   scenarios_completed: number;
   scenarios_total: number;
+}
+
+// Full comparison payload from /api/jobs/{id}/results and
+// /api/projects/{id}/results (spec Ch 6.3) — baseline + per-film runs with
+// end-uses, per-window detail, and the resolved building characterization.
+export interface EnergyEndUses {
+  heating_elec_kwh: number;
+  heating_gas_kwh: number;
+  cooling_elec_kwh: number;
+  interior_lighting_kwh: number;
+  interior_equipment_kwh: number;
+  fans_kwh: number;
+  pumps_kwh: number;
+  heat_rejection_kwh: number;
+  total_electricity_kwh: number;
+  total_gas_kwh: number;
+}
+
+export interface WindowResult {
+  surface_name: string;
+  orientation_deg: number;
+  tilt_deg: number;
+  area_m2: number;
+  annual_solar_transmitted_kwh: number;
+  annual_heat_gain_kwh: number;
+  annual_heat_loss_kwh: number;
+  peak_heat_gain_rate_w: number;
+}
+
+export interface RunResult {
+  run_id: string;
+  scenario_label: string;
+  engine_mode: string;
+  energyplus_version: string;
+  weather_station: string;
+  weather_dataset: string;
+  annual_end_uses: EnergyEndUses;
+  peak_demand: { total_facility_peak_kw: number; cooling_peak_kw: number };
+  windows: WindowResult[];
+  monthly_cooling_kwh?: number[];
+  sim_runtime_seconds: number;
+  warnings: string[];
+}
+
+export interface ResolvedBuilding {
+  cooling_cop: number;
+  heating_cop: number;
+  hvac_system_type: string;
+  num_floors: number;
+  floor_to_floor_ft: number;
+  wall_area_sf: number;
+  wall_u_factor: number;
+  wall_absorptance: number;
+  roof_area_sf: number;
+  roof_type: string;
+  roof_u_factor: number;
+  roof_absorptance: number;
+  operating_hours_per_week: number;
+  hdd65: number;
+  cdd65: number;
+  sources: Record<string, 'user' | 'default'>;
+}
+
+export interface Comparison {
+  project_id: string;
+  engine_mode: string;
+  baseline: RunResult;
+  films: ScenarioResult[];
+  film_runs: RunResult[];
+  building: ResolvedBuilding | null;
+  generated_at: string;
+  warnings: string[];
+  audit_bundle_path: string | null;
 }
 
 // /api/jobs/{id} is a discriminated union on `status`.

@@ -1,4 +1,10 @@
-export function Header({ onHome }: { onHome: () => void }) {
+export function Header({
+  onHome,
+  onSignOut,
+}: {
+  onHome: () => void;
+  onSignOut?: () => void;
+}) {
   return (
     <header className="border-b border-ink/10 bg-white">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-3">
@@ -13,7 +19,19 @@ export function Header({ onHome }: { onHome: () => void }) {
           <span className="hidden h-4 w-px bg-ink/20 sm:inline-block" />
           <span className="text-base font-semibold text-amber">EnergyModeler</span>
         </button>
-        <span className="text-xs text-ink/40">window-film energy savings</span>
+        <div className="flex items-center gap-4">
+          <span className="hidden text-xs text-ink/40 sm:inline">
+            window-film energy savings
+          </span>
+          {onSignOut && (
+            <button
+              onClick={onSignOut}
+              className="text-xs font-medium text-ink/60 hover:text-ink"
+            >
+              Sign out
+            </button>
+          )}
+        </div>
       </div>
     </header>
   );

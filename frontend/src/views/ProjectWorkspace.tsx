@@ -2,9 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import { api } from '../api';
 import type {
   BaseGlazing,
+  Comparison,
   Film,
   Job,
-  JobCompleted,
   Project,
 } from '../types';
 import { Button, Card, ErrorBox, SectionTitle, Spinner } from '../components/ui';
@@ -17,7 +17,7 @@ type RunState =
   | { phase: 'idle' }
   | { phase: 'running'; completed: number; total: number }
   | { phase: 'failed'; message: string }
-  | { phase: 'completed'; job: JobCompleted };
+  | { phase: 'completed' };
 
 const POLL_MS = 2000;
 
@@ -38,6 +38,7 @@ export function ProjectWorkspace({
   ]);
   const [run, setRun] = useState<RunState>({ phase: 'idle' });
   const [runError, setRunError] = useState<string | null>(null);
+  const [result, setResult] = useState<{ comparison: Comparison; jobId: string } | null>(null);
   const pollRef = useRef<number | null>(null);
 
   // Initial load of project + catalogs.
@@ -63,6 +64,13 @@ export function ProjectWorkspace({
             })),
           );
         }
+        // Show the latest completed analysis immediately (no re-run needed).
+        if (p.status === 'completed') {
+          api
+            .projectResults(p.id)
+            .then((r) => active && setResult({ comparison: r.comparison, jobId: r.job_id }))
+            .catch(() => {});
+        }
       })
       .catch((e) => active && setLoadError((e as Error).message));
     return () => {
@@ -74,7 +82,11 @@ export function ProjectWorkspace({
   function applyJob(job: Job) {
     if (job.status === 'completed') {
       if (pollRef.current) window.clearInterval(pollRef.current);
-      setRun({ phase: 'completed', job });
+      setRun({ phase: 'completed' });
+      api
+        .jobResults(job.job_id)
+        .then((comparison) => setResult({ comparison, jobId: job.job_id }))
+        .catch((e) => setRun({ phase: 'failed', message: (e as Error).message }));
     } else if (job.status === 'failed') {
       if (pollRef.current) window.clearInterval(pollRef.current);
       setRun({
@@ -121,6 +133,7 @@ export function ProjectWorkspace({
     }
 
     setRun({ phase: 'running', completed: 0, total: ready.length });
+    setResult(null);
     try {
       const resp = await api.runCalc({
         project_id: project.id,
@@ -229,9 +242,14 @@ export function ProjectWorkspace({
           </div>
         </Card>
 
-        {run.phase === 'completed' && (
+        {run.phase === 'completed' && !result && (
           <div className="pt-2">
-            <ResultsDashboard job={run.job} />
+            <Spinner label="Loading results…" />
+          </div>
+        )}
+        {result && (
+          <div className="pt-2">
+            <ResultsDashboard comparison={result.comparison} jobId={result.jobId} />
           </div>
         )}
       </div>

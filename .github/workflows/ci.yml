@@ -18,6 +18,8 @@ jobs:
           python-version: "3.11"
       - name: Install deps
         run: pip install -r requirements.txt
+      - name: Lint (ruff)
+        run: pip install ruff==0.8.4 && ruff check .
       - name: Run tests
         run: python -m pytest -q
 
