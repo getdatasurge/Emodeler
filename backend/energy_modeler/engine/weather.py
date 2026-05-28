@@ -7,6 +7,7 @@ fully offline in the beta. POA drives the pre-flight estimate and the analytical
 fallback engine — the production EnergyPlus run uses the TMY3 .epw directly."""
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -15,6 +16,22 @@ from .. import datastore
 from ..config import settings
 
 PVWATTS_URL = "https://developer.nrel.gov/api/pvwatts/v8.json"
+
+
+def epw_for_zip(zip_code: str) -> str:
+    """Path to the TMY3 .epw for the ZIP's nearest NSRDB station, used by the
+    real EnergyPlus run. Looks in <storage_dir>/weather; raises FileNotFoundError
+    when none is cached/bundled (a provisioned worker downloads it from NSRDB)."""
+    cache = Path(settings.storage_dir) / "weather"
+    z = datastore.get_zip(zip_code)
+    if z:
+        for name in (f"{z['station_id']}.epw", f"{zip_code}.epw"):
+            cand = cache / name
+            if cand.exists():
+                return str(cand)
+    raise FileNotFoundError(
+        f"No TMY3 .epw cached for ZIP {zip_code}; configure the NSRDB weather download"
+    )
 
 # Window face -> (tilt, azimuth) in PVWatts/EnergyPlus convention
 # (azimuth clockwise from north: 0=N, 90=E, 180=S, 270=W; tilt 90 = vertical).

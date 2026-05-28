@@ -109,3 +109,19 @@ def build_idfs(project: EngineProject, workdir: Path) -> list[Path]:
         p.write_text(_scenario_idf_text(project, base_glazing, film, scenario.label))
         paths.append(p)
     return paths
+
+
+def build_scenario_idf(idf, base_glazing: dict, film: FilmSpec | None, bldg, label: str):
+    """Mutate a loaded DOE-prototype eppy IDF into a runnable scenario IDF
+    (spec Ch 5.2): swap the glazing construction (film), pin the as-built HVAC
+    COP (retrofit rule — never resized between baseline and film), and add the
+    output objects the parser needs. Returns the IDF. Operates on a real
+    prototype loaded by prototype_loader; structurally validated in tests."""
+    from . import glazing, idf_ops
+
+    con = glazing.build_film_construction(idf, f"{label}_glazing", base_glazing, film)
+    idf_ops.set_window_construction(idf, con)
+    idf_ops.set_cooling_cop(idf, bldg.cooling_cop)
+    idf_ops.set_heating_cop(idf, bldg.heating_cop)
+    idf_ops.add_standard_outputs(idf)
+    return idf
