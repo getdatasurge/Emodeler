@@ -65,6 +65,19 @@ docker compose --profile full up   # + Redis + EnergyPlus Celery worker
 cd backend && . .venv/bin/activate && python -m pytest -q
 ```
 
+### Deploy the frontend to GitHub Pages
+`.github/workflows/pages.yml` builds `frontend/` and publishes it on every push
+to `main`. One-time setup: in the repo, **Settings → Pages → Build and
+deployment → Source: GitHub Actions**. The site lands at
+`https://getdatasurge.github.io/Emodeler/`.
+
+> GitHub Pages is static-only and **cannot host the FastAPI backend.** Out of the
+> box the published site is a UI preview that shows a "backend not reachable"
+> notice. To make it fully functional, deploy the backend (e.g. Fly.io/Render,
+> per spec Ch 9) and set a repo **Variable** `VITE_API_BASE` to its URL — the
+> Pages build injects it, and the backend already allows CORS. Locally:
+> `cd frontend && VITE_BASE=/Emodeler/ VITE_API_BASE=https://your-backend npm run build`.
+
 ---
 
 ## Architecture

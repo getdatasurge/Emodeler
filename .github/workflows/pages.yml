@@ -1,0 +1,56 @@
+name: Deploy frontend to GitHub Pages
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+# Allow the workflow to publish to Pages via OIDC.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One concurrent Pages deployment; don't cancel an in-progress publish.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: actions/configure-pages@v5
+      - name: Install deps
+        run: npm install
+      - name: Build
+        env:
+          # Assets resolve under https://<owner>.github.io/Emodeler/
+          VITE_BASE: /Emodeler/
+          # Optional: set a repo Variable named VITE_API_BASE to a deployed
+          # backend URL so the static site can run live analyses. Without it
+          # the UI loads as a static preview (backend calls are unavailable).
+          VITE_API_BASE: ${{ vars.VITE_API_BASE }}
+        run: npm run build
+      - name: SPA fallback (404 -> index)
+        run: cp dist/index.html dist/404.html
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: frontend/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
