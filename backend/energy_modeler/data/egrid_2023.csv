@@ -1,0 +1,28 @@
+subregion,subregion_name,co2_lb_per_mwh,co2e_lb_per_mwh,source
+AKGD,ASCC Alaska Grid,899.0,904.5,egrid2023
+AKMS,ASCC Miscellaneous,519.4,521.4,egrid2023
+AZNM,WECC Southwest,740.8,743.4,egrid2023
+CAMX,WECC California,436.7,438.2,egrid2023
+ERCT,ERCOT All,738.0,740.8,egrid2023
+FRCC,FRCC All,801.9,804.5,egrid2023
+HIMS,HICC Miscellaneous,1122.1,1132.0,egrid2023
+HIOA,HICC Oahu,1489.4,1498.8,egrid2023
+MROE,MRO East,1402.0,1409.7,egrid2023
+MROW,MRO West,920.0,926.4,egrid2023
+NEWE,NPCC New England,533.0,537.0,estimate_pending_seed
+NWPP,WECC Northwest,615.0,620.0,estimate_pending_seed
+NYCW,NPCC NYC/Westchester,560.0,564.0,estimate_pending_seed
+NYLI,NPCC Long Island,1170.0,1180.0,estimate_pending_seed
+NYUP,NPCC Upstate NY,267.0,270.0,estimate_pending_seed
+RFCE,RFC East,626.0,631.0,estimate_pending_seed
+RFCM,RFC Michigan,1100.0,1109.0,estimate_pending_seed
+RFCW,RFC West,985.0,993.0,estimate_pending_seed
+RMPA,WECC Rockies,1023.0,1031.0,estimate_pending_seed
+SPNO,SPP North,1080.0,1089.0,estimate_pending_seed
+SPSO,SPP South,920.0,928.0,estimate_pending_seed
+SRMV,SERC Mississippi Valley,820.0,825.0,estimate_pending_seed
+SRMW,SERC Midwest,1180.0,1190.0,estimate_pending_seed
+SRSO,SERC South,871.0,878.0,estimate_pending_seed
+SRTV,SERC Tennessee Valley,930.0,937.0,estimate_pending_seed
+SRVC,SERC Virginia/Carolina,623.0,628.0,estimate_pending_seed
+NATIONAL,U.S. National Average,822.4,825.0,egrid2023_power_profiler

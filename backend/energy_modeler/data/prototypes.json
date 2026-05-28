@@ -1,0 +1,21 @@
+{
+  "_note": "DOE Commercial Prototype Building metadata (energycodes.gov/prototype-buildings). nominal_eui_kwh_sf and the end-use split feed the analytical fallback estimator used when the EnergyPlus binary is absent. The real engine loads the full IDF from /opt/energyplus/prototypes and ignores these aggregates.",
+  "prototypes": [
+    {"id": "SmallOffice", "building_type": "Small Office", "nominal_area_sf": 5500, "floors": 1, "zones": 5,
+     "wwr": 0.21, "nominal_eui_kwh_sf": 14.5, "cooling_fraction": 0.16, "heating_fraction": 0.05, "lighting_fraction": 0.22, "fan_fraction": 0.09, "cop": 3.4},
+    {"id": "MediumOffice", "building_type": "Medium Office", "nominal_area_sf": 53628, "floors": 3, "zones": 15,
+     "wwr": 0.33, "nominal_eui_kwh_sf": 15.6, "cooling_fraction": 0.18, "heating_fraction": 0.06, "lighting_fraction": 0.20, "fan_fraction": 0.11, "cop": 3.6},
+    {"id": "LargeOffice", "building_type": "Large Office", "nominal_area_sf": 498588, "floors": 12, "zones": 73,
+     "wwr": 0.40, "nominal_eui_kwh_sf": 17.2, "cooling_fraction": 0.20, "heating_fraction": 0.04, "lighting_fraction": 0.19, "fan_fraction": 0.13, "cop": 5.2},
+    {"id": "PrimarySchool", "building_type": "Primary School (K-5)", "nominal_area_sf": 73960, "floors": 1, "zones": 25,
+     "wwr": 0.35, "nominal_eui_kwh_sf": 13.8, "cooling_fraction": 0.17, "heating_fraction": 0.10, "lighting_fraction": 0.21, "fan_fraction": 0.12, "cop": 3.5},
+    {"id": "SecondarySchool", "building_type": "Secondary School (6-12)", "nominal_area_sf": 210887, "floors": 2, "zones": 46,
+     "wwr": 0.38, "nominal_eui_kwh_sf": 14.6, "cooling_fraction": 0.18, "heating_fraction": 0.09, "lighting_fraction": 0.21, "fan_fraction": 0.12, "cop": 3.6},
+    {"id": "StandaloneRetail", "building_type": "Retail - Standalone", "nominal_area_sf": 24962, "floors": 1, "zones": 4,
+     "wwr": 0.18, "nominal_eui_kwh_sf": 13.0, "cooling_fraction": 0.15, "heating_fraction": 0.07, "lighting_fraction": 0.26, "fan_fraction": 0.10, "cop": 3.4},
+    {"id": "StripMall", "building_type": "Strip Mall Retail", "nominal_area_sf": 22500, "floors": 1, "zones": 10,
+     "wwr": 0.22, "nominal_eui_kwh_sf": 13.5, "cooling_fraction": 0.16, "heating_fraction": 0.07, "lighting_fraction": 0.25, "fan_fraction": 0.10, "cop": 3.4},
+    {"id": "Warehouse", "building_type": "Warehouse", "nominal_area_sf": 52045, "floors": 1, "zones": 3,
+     "wwr": 0.06, "nominal_eui_kwh_sf": 6.5, "cooling_fraction": 0.06, "heating_fraction": 0.14, "lighting_fraction": 0.30, "fan_fraction": 0.06, "cop": 3.2}
+  ]
+}

@@ -1,0 +1,56 @@
+# EnergyModeler — beta compose.
+# Brings up the FastAPI backend (SQLite, runs the analytical estimate engine by
+# default) and the Vite frontend dev server proxied to it. Redis + the
+# EnergyPlus worker are behind the optional "full" profile.
+services:
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: sqlite:////data/energy_modeler.db
+      STORAGE_DIR: /data/storage
+      # NREL_API_KEY: ${NREL_API_KEY:-}
+      # IGSDB_API_TOKEN: ${IGSDB_API_TOKEN:-}
+    volumes:
+      - api_data:/data
+
+  frontend:
+    image: node:22-alpine
+    working_dir: /app
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0 --port 5173"
+    environment:
+      # vite.config reads API_PROXY to reach the api service inside compose.
+      API_PROXY: http://api:8000
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+    depends_on:
+      - api
+
+  # ---- optional production async path (profile: full) ----
+  redis:
+    image: redis:7-alpine
+    profiles: ["full"]
+    ports:
+      - "6379:6379"
+
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.worker
+    profiles: ["full"]
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      DATABASE_URL: sqlite:////data/energy_modeler.db
+      STORAGE_DIR: /data/storage
+    volumes:
+      - api_data:/data
+    depends_on:
+      - redis
+
+volumes:
+  api_data:

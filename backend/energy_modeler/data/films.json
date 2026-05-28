@@ -1,0 +1,98 @@
+[
+  {
+    "sku": "3M-PR40X", "product_line": "Prestige", "display_name": "Prestige PR40X",
+    "igsdb_product_id": 14823, "tvis_pct": 40.0, "shgc_on_dbl_clear": 0.23,
+    "uv_block_pct": 99.9, "warranty_yrs": 15, "thickness_mil": 1.5, "list_price_per_sqft": 18.50,
+    "optical": {"tf_solar": 0.27, "rf_solar": 0.42, "rb_solar": 0.31, "tf_visible": 0.38, "rf_visible": 0.11, "rb_visible": 0.11, "emissivity_front": 0.84, "emissivity_back": 0.84, "conductivity": 1.0, "thickness_m": 0.003}
+  },
+  {
+    "sku": "3M-PR50X", "product_line": "Prestige", "display_name": "Prestige PR50X",
+    "igsdb_product_id": 14824, "tvis_pct": 50.0, "shgc_on_dbl_clear": 0.27,
+    "uv_block_pct": 99.9, "warranty_yrs": 15, "thickness_mil": 1.5, "list_price_per_sqft": 17.75,
+    "optical": {"tf_solar": 0.34, "rf_solar": 0.36, "rb_solar": 0.28, "tf_visible": 0.49, "rf_visible": 0.10, "rb_visible": 0.10, "emissivity_front": 0.84, "emissivity_back": 0.84, "conductivity": 1.0, "thickness_m": 0.003}
+  },
+  {
+    "sku": "3M-PR60X", "product_line": "Prestige", "display_name": "Prestige PR60X",
+    "igsdb_product_id": 14825, "tvis_pct": 60.0, "shgc_on_dbl_clear": 0.30,
+    "uv_block_pct": 99.9, "warranty_yrs": 15, "thickness_mil": 1.5, "list_price_per_sqft": 17.25,
+    "optical": {"tf_solar": 0.41, "rf_solar": 0.30, "rb_solar": 0.24, "tf_visible": 0.59, "rf_visible": 0.09, "rb_visible": 0.09, "emissivity_front": 0.84, "emissivity_back": 0.84, "conductivity": 1.0, "thickness_m": 0.003}
+  },
+  {
+    "sku": "3M-PR70X", "product_line": "Prestige", "display_name": "Prestige PR70X",
+    "igsdb_product_id": 14826, "tvis_pct": 70.0, "shgc_on_dbl_clear": 0.34,
+    "uv_block_pct": 99.9, "warranty_yrs": 15, "thickness_mil": 1.5, "list_price_per_sqft": 16.50,
+    "optical": {"tf_solar": 0.48, "rf_solar": 0.24, "rb_solar": 0.20, "tf_visible": 0.69, "rf_visible": 0.08, "rb_visible": 0.08, "emissivity_front": 0.84, "emissivity_back": 0.84, "conductivity": 1.0, "thickness_m": 0.003}
+  },
+  {
+    "sku": "3M-NV15", "product_line": "Night Vision", "display_name": "Night Vision NV15",
+    "igsdb_product_id": 14210, "tvis_pct": 15.0, "shgc_on_dbl_clear": 0.21,
+    "uv_block_pct": 99.9, "warranty_yrs": 15, "thickness_mil": 1.0, "list_price_per_sqft": 11.25,
+    "optical": {"tf_solar": 0.18, "rf_solar": 0.18, "rb_solar": 0.16, "tf_visible": 0.14, "rf_visible": 0.07, "rb_visible": 0.07, "emissivity_front": 0.84, "emissivity_back": 0.84, "conductivity": 1.0, "thickness_m": 0.003}
+  },
+  {
+    "sku": "3M-NV25", "product_line": "Night Vision", "display_name": "Night Vision NV25",
+    "igsdb_product_id": 14211, "tvis_pct": 25.0, "shgc_on_dbl_clear": 0.27,
+    "uv_block_pct": 99.9, "warranty_yrs": 15, "thickness_mil": 1.0, "list_price_per_sqft": 11.00,
+    "optical": {"tf_solar": 0.26, "rf_solar": 0.14, "rb_solar": 0.13, "tf_visible": 0.24, "rf_visible": 0.07, "rb_visible": 0.07, "emissivity_front": 0.84, "emissivity_back": 0.84, "conductivity": 1.0, "thickness_m": 0.003}
+  },
+  {
+    "sku": "3M-NV35", "product_line": "Night Vision", "display_name": "Night Vision NV35",
+    "igsdb_product_id": 14212, "tvis_pct": 35.0, "shgc_on_dbl_clear": 0.30,
+    "uv_block_pct": 99.9, "warranty_yrs": 15, "thickness_mil": 1.0, "list_price_per_sqft": 10.75,
+    "optical": {"tf_solar": 0.32, "rf_solar": 0.12, "rb_solar": 0.11, "tf_visible": 0.34, "rf_visible": 0.07, "rb_visible": 0.07, "emissivity_front": 0.84, "emissivity_back": 0.84, "conductivity": 1.0, "thickness_m": 0.003}
+  },
+  {
+    "sku": "3M-CT35", "product_line": "Ceramic", "display_name": "Ceramic CT35",
+    "igsdb_product_id": 14501, "tvis_pct": 35.0, "shgc_on_dbl_clear": 0.36,
+    "uv_block_pct": 99.9, "warranty_yrs": 15, "thickness_mil": 1.0, "list_price_per_sqft": 9.50,
+    "optical": {"tf_solar": 0.40, "rf_solar": 0.10, "rb_solar": 0.10, "tf_visible": 0.34, "rf_visible": 0.08, "rb_visible": 0.08, "emissivity_front": 0.84, "emissivity_back": 0.84, "conductivity": 1.0, "thickness_m": 0.003}
+  },
+  {
+    "sku": "3M-S20", "product_line": "Sun Control", "display_name": "Sun Control S20",
+    "igsdb_product_id": 13990, "tvis_pct": 18.0, "shgc_on_dbl_clear": 0.24,
+    "uv_block_pct": 99.0, "warranty_yrs": 10, "thickness_mil": 1.5, "list_price_per_sqft": 7.25,
+    "optical": {"tf_solar": 0.20, "rf_solar": 0.30, "rb_solar": 0.22, "tf_visible": 0.17, "rf_visible": 0.12, "rb_visible": 0.12, "emissivity_front": 0.84, "emissivity_back": 0.84, "conductivity": 1.0, "thickness_m": 0.003}
+  },
+  {
+    "sku": "3M-S70", "product_line": "Sun Control", "display_name": "Sun Control S70",
+    "igsdb_product_id": 13991, "tvis_pct": 68.0, "shgc_on_dbl_clear": 0.44,
+    "uv_block_pct": 99.0, "warranty_yrs": 10, "thickness_mil": 1.5, "list_price_per_sqft": 7.00,
+    "optical": {"tf_solar": 0.58, "rf_solar": 0.16, "rb_solar": 0.14, "tf_visible": 0.67, "rf_visible": 0.09, "rb_visible": 0.09, "emissivity_front": 0.84, "emissivity_back": 0.84, "conductivity": 1.0, "thickness_m": 0.003}
+  },
+  {
+    "sku": "3M-TH35", "product_line": "Thinsulate", "display_name": "Thinsulate TH35",
+    "igsdb_product_id": 15102, "tvis_pct": 35.0, "shgc_on_dbl_clear": 0.34,
+    "uv_block_pct": 99.9, "warranty_yrs": 15, "thickness_mil": 1.7, "list_price_per_sqft": 14.50,
+    "optical": {"tf_solar": 0.34, "rf_solar": 0.14, "rb_solar": 0.13, "tf_visible": 0.34, "rf_visible": 0.10, "rb_visible": 0.10, "emissivity_front": 0.62, "emissivity_back": 0.62, "conductivity": 1.0, "thickness_m": 0.003}
+  },
+  {
+    "sku": "3M-TH40", "product_line": "Thinsulate", "display_name": "Thinsulate TH40",
+    "igsdb_product_id": 15103, "tvis_pct": 40.0, "shgc_on_dbl_clear": 0.36,
+    "uv_block_pct": 99.9, "warranty_yrs": 15, "thickness_mil": 1.7, "list_price_per_sqft": 14.25,
+    "optical": {"tf_solar": 0.38, "rf_solar": 0.13, "rb_solar": 0.12, "tf_visible": 0.39, "rf_visible": 0.10, "rb_visible": 0.10, "emissivity_front": 0.62, "emissivity_back": 0.62, "conductivity": 1.0, "thickness_m": 0.003}
+  },
+  {
+    "sku": "3M-S140", "product_line": "Safety", "display_name": "Safety+Sun S140 Combination",
+    "igsdb_product_id": 16001, "tvis_pct": 44.0, "shgc_on_dbl_clear": 0.50,
+    "uv_block_pct": 99.0, "warranty_yrs": 10, "thickness_mil": 8.0, "list_price_per_sqft": 16.00,
+    "optical": {"tf_solar": 0.52, "rf_solar": 0.14, "rb_solar": 0.13, "tf_visible": 0.43, "rf_visible": 0.10, "rb_visible": 0.10, "emissivity_front": 0.84, "emissivity_back": 0.84, "conductivity": 1.0, "thickness_m": 0.008}
+  },
+  {
+    "sku": "3M-SH4", "product_line": "Safety", "display_name": "Ultra Safety SH4 Clear",
+    "igsdb_product_id": 16010, "tvis_pct": 82.0, "shgc_on_dbl_clear": 0.71,
+    "uv_block_pct": 99.0, "warranty_yrs": 10, "thickness_mil": 4.0, "list_price_per_sqft": 12.00,
+    "optical": {"tf_solar": 0.78, "rf_solar": 0.08, "rb_solar": 0.08, "tf_visible": 0.82, "rf_visible": 0.09, "rb_visible": 0.09, "emissivity_front": 0.84, "emissivity_back": 0.84, "conductivity": 1.0, "thickness_m": 0.004}
+  },
+  {
+    "sku": "3M-SH7", "product_line": "Safety", "display_name": "Ultra Safety SH7 Clear",
+    "igsdb_product_id": 16011, "tvis_pct": 78.0, "shgc_on_dbl_clear": 0.66,
+    "uv_block_pct": 99.0, "warranty_yrs": 10, "thickness_mil": 7.0, "list_price_per_sqft": 13.50,
+    "optical": {"tf_solar": 0.72, "rf_solar": 0.09, "rb_solar": 0.09, "tf_visible": 0.78, "rf_visible": 0.09, "rb_visible": 0.09, "emissivity_front": 0.84, "emissivity_back": 0.84, "conductivity": 1.0, "thickness_m": 0.007}
+  },
+  {
+    "sku": "3M-SH8", "product_line": "Safety", "display_name": "Ultra Safety SH8 Clear",
+    "igsdb_product_id": 16012, "tvis_pct": 75.0, "shgc_on_dbl_clear": 0.62,
+    "uv_block_pct": 99.0, "warranty_yrs": 10, "thickness_mil": 8.0, "list_price_per_sqft": 14.00,
+    "optical": {"tf_solar": 0.68, "rf_solar": 0.10, "rb_solar": 0.10, "tf_visible": 0.75, "rf_visible": 0.09, "rb_visible": 0.09, "emissivity_front": 0.84, "emissivity_back": 0.84, "conductivity": 1.0, "thickness_m": 0.008}
+  }
+]

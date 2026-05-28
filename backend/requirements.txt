@@ -1,0 +1,20 @@
+# Core API
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+pydantic==2.10.4
+pydantic-settings==2.7.1
+python-multipart==0.0.20
+
+# Persistence (SQLite for beta; Postgres/Supabase in prod via DATABASE_URL)
+SQLAlchemy==2.0.36
+
+# HTTP client for upstream data sources (NREL / IGSDB / OpenEI)
+httpx==0.28.1
+
+# EnergyPlus IDF generation (optional at runtime — engine degrades gracefully
+# to a labeled analytical estimate when eppy / the E+ binary are absent)
+# eppy==0.5.63
+# geomeppy==0.5.7
+
+# Tests
+pytest==8.3.4
