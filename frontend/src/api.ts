@@ -17,6 +17,12 @@ import type {
   Utility,
 } from './types';
 
+// API origin. Empty (the default) keeps requests same-origin (`/api/...`) so the
+// Vite dev proxy / a co-hosted backend works. For a static deploy (e.g. GitHub
+// Pages) set VITE_API_BASE at build time to a deployed backend URL.
+const API_BASE = (import.meta.env.VITE_API_BASE ?? '').replace(/\/$/, '');
+export const apiBaseConfigured = API_BASE.length > 0;
+
 export class ApiError extends Error {
   status: number;
   body: unknown;
@@ -31,7 +37,7 @@ export class ApiError extends Error {
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let resp: Response;
   try {
-    resp = await fetch(path, {
+    resp = await fetch(`${API_BASE}${path}`, {
       headers: { 'Content-Type': 'application/json' },
       ...init,
     });
@@ -105,5 +111,5 @@ export const api = {
 };
 
 // Absolute-ish URLs for links the browser opens directly (reports / downloads).
-export const reportUrl = (jobId: string) => `/api/reports/${jobId}`;
-export const auditBundleUrl = (jobId: string) => `/api/jobs/${jobId}/audit-bundle`;
+export const reportUrl = (jobId: string) => `${API_BASE}/api/reports/${jobId}`;
+export const auditBundleUrl = (jobId: string) => `${API_BASE}/api/jobs/${jobId}/audit-bundle`;
