@@ -125,6 +125,19 @@ def test_thinsulate_improves_u_factor_standard_film_does_not():
     assert pr.u_factor_btuhrft2F == base_u
 
 
+def test_daylighting_penalty_present():
+    proj = _project(
+        project_id="dl", building_type="MediumOffice", climate_zone="2A",
+        gross_floor_area_sf=14500, zip="33540", utility_rate_usd_kwh=0.1145,
+        faces=[EngineFace("S", 1500, "dbl_clear_3mm_13mmAir")],
+        scenarios=[EngineScenario("Good", "3M-PR40X", 20000)],  # VT 0.78 -> ~0.31
+    )
+    _, _, comp = _run(proj)
+    # Cutting visible transmittance makes daylit zones run electric lighting
+    # more -> a lighting penalty (delta = baseline - film < 0).
+    assert comp.films[0].delta_lighting_kwh < 0
+
+
 def test_unknown_film_raises():
     proj = _project(
         project_id="bad", building_type="MediumOffice", climate_zone="2A",
