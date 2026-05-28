@@ -1,4 +1,4 @@
-import { auditBundleUrl, reportUrl } from '../api';
+import { auditBundleUrl, reportPdfUrl, reportUrl } from '../api';
 import type { Comparison, RunResult } from '../types';
 import { currency, integerWithCommas, irr, kw, payback } from '../format';
 import { recommendedIndex } from '../recommend';
@@ -228,6 +228,9 @@ export function ResultsDashboard({
         <div className="flex gap-2">
           <a href={reportUrl(jobId)} target="_blank" rel="noreferrer">
             <Button>Open Branded Report</Button>
+          </a>
+          <a href={reportPdfUrl(jobId)} target="_blank" rel="noreferrer">
+            <Button variant="secondary">Download PDF</Button>
           </a>
           <a href={auditBundleUrl(jobId)}>
             <Button variant="secondary">Download Audit Bundle (.zip)</Button>

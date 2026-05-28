@@ -3,6 +3,12 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
+# Native libs for WeasyPrint PDF rendering (pango). Without them the API still
+# runs; the /pdf endpoint just returns 503 and the HTML report is used.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpango-1.0-0 libpangoft2-1.0-0 \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 

@@ -131,4 +131,5 @@ export const api = {
 
 // Absolute-ish URLs for links the browser opens directly (reports / downloads).
 export const reportUrl = (jobId: string) => `${API_BASE}/api/reports/${jobId}`;
+export const reportPdfUrl = (jobId: string) => `${API_BASE}/api/reports/${jobId}/pdf`;
 export const auditBundleUrl = (jobId: string) => `${API_BASE}/api/jobs/${jobId}/audit-bundle`;
