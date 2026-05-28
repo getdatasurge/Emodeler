@@ -28,6 +28,10 @@ jobs:
         with:
           node-version: "22"
       - uses: actions/configure-pages@v5
+        with:
+          # Enable Pages (Actions source) automatically so no manual repo
+          # setting is needed; idempotent if it's already on.
+          enablement: true
       - name: Install deps
         run: npm install
       - name: Build
