@@ -13,4 +13,6 @@ ENV STORAGE_DIR=/data/storage \
 RUN mkdir -p /data/storage
 
 EXPOSE 8000
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Bind the platform-provided $PORT (Render/Railway/etc.) when present; default
+# to 8000 for local/Fly. Shell form so the variable is expanded.
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
