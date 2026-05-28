@@ -5,17 +5,83 @@ from __future__ import annotations
 
 import dataclasses
 import math
+import uuid
 from datetime import datetime, timezone
 
 from .. import carbon, datastore, economics
 from ..engine import building
 from ..engine.inputs import EngineProject
-from ..schemas import FilmComparison, ProjectComparison, RunResult
+from ..schemas import (
+    EnergyEndUses,
+    FilmComparison,
+    PeakDemand,
+    ProjectComparison,
+    RunResult,
+)
+from .eplus_html import parse_annual_end_uses
 
 
 def _nan_to_none(value: float) -> float:
     """Replace NaN with a JSON-safe sentinel (-1) for payback/IRR display."""
     return -1.0 if math.isnan(value) else round(value, 4)
+
+
+_ENDUSE_FIELD = {
+    "heating": "heating_elec_kwh",
+    "cooling": "cooling_elec_kwh",
+    "interior_lighting": "interior_lighting_kwh",
+    "interior_equipment": "interior_equipment_kwh",
+    "fans": "fans_kwh",
+    "pumps": "pumps_kwh",
+    "heat_rejection": "heat_rejection_kwh",
+}
+
+
+def parse_run(
+    run_dir,
+    label: str,
+    *,
+    station: str = "EnergyPlus run",
+    weather_dataset: str = "TMY3 (EnergyPlus)",
+    energyplus_version: str = "24.2.0",
+) -> RunResult:
+    """Build a RunResult from an EnergyPlus run directory's eplustbl.csv summary
+    (spec Ch 6.2). Per-window + hourly detail is layered on by eplus_csv."""
+    categories = parse_annual_end_uses(run_dir)
+    eu = EnergyEndUses()
+    total_elec = 0.0
+    total_gas = 0.0
+    for cat, vals in categories.items():
+        elec = vals.get("electricity_kwh", 0.0)
+        gas = vals.get("gas_kwh", 0.0)
+        field = _ENDUSE_FIELD.get(cat)
+        if field:
+            setattr(eu, field, round(elec, 1))
+        if cat in ("total_end_uses", "total"):
+            total_elec = elec
+            total_gas = gas
+        else:
+            total_gas += gas
+    eu.heating_gas_kwh = round(categories.get("heating", {}).get("gas_kwh", 0.0), 1)
+    eu.total_electricity_kwh = round(
+        total_elec or sum(getattr(eu, f) for f in _ENDUSE_FIELD.values()), 1
+    )
+    eu.total_gas_kwh = round(total_gas, 1)
+    return RunResult(
+        run_id=str(uuid.uuid4()),
+        scenario_label=label,
+        engine_mode="energyplus",
+        energyplus_version=energyplus_version,
+        weather_station=station,
+        weather_dataset=weather_dataset,
+        annual_end_uses=eu,
+        peak_demand=PeakDemand(
+            cooling_peak_kw=round(eu.cooling_elec_kwh / 1800.0, 2),
+            total_facility_peak_kw=round(eu.total_electricity_kwh / 2600.0, 2),
+        ),
+        windows=[],
+        warnings=[],
+    )
 
 
 def build_comparison(
