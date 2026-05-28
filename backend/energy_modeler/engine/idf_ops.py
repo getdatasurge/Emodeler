@@ -1,0 +1,102 @@
+"""eppy IDF-mutation primitives (spec Ch 5 / 7) for the real EnergyPlus pipeline.
+
+These operate on a loaded DOE-prototype IDF to produce baseline + film scenario
+IDFs. eppy is a worker-image dependency, imported lazily by callers; the helpers
+themselves just take an eppy IDF object so they're unit-testable against any IDF.
+
+Version-robust on purpose: object/field names drift across EnergyPlus releases,
+so each helper tries the known aliases and reports how many objects it touched.
+Validated against a synthetic IDF in tests; real DOE-prototype validation runs in
+the worker image against the 24.2 binary (spec Ch 12)."""
+from __future__ import annotations
+
+from typing import Any
+
+# DX cooling coils whose rated COP we pin to the as-built value. The retrofit
+# rule (spec 0.4): installed HVAC efficiency is identical in baseline and film
+# scenarios — we never resize or re-rate between them.
+_COOLING_COIL_CLASSES = (
+    "COIL:COOLING:DX:SINGLESPEED",
+    "COIL:COOLING:DX:TWOSPEED",
+    "COIL:COOLING:DX:MULTISPEED",
+    "COIL:COOLING:DX:CURVEFIT:PERFORMANCE",
+)
+_COOLING_COP_FIELDS = (
+    "Gross_Rated_Cooling_COP",
+    "Rated_COP",
+    "High_Speed_Gross_Rated_Cooling_COP",
+    "Speed_1_Gross_Rated_Cooling_COP",
+)
+_HEATING_COIL_CLASSES = ("COIL:HEATING:DX:SINGLESPEED", "COIL:HEATING:DX:MULTISPEED")
+_HEATING_COP_FIELDS = ("Gross_Rated_Heating_COP", "Rated_COP", "Speed_1_Gross_Rated_Heating_COP")
+
+
+def _set_first_present(obj: Any, fields: tuple[str, ...], value: float) -> bool:
+    for f in fields:
+        if hasattr(obj, f):
+            setattr(obj, f, value)
+            return True
+    return False
+
+
+def set_cooling_cop(idf: Any, cop: float) -> int:
+    """Pin rated COP on every DX cooling coil. Returns the number of coils set."""
+    n = 0
+    for cls in _COOLING_COIL_CLASSES:
+        for coil in idf.idfobjects.get(cls, []):
+            if _set_first_present(coil, _COOLING_COP_FIELDS, cop):
+                n += 1
+    return n
+
+
+def set_heating_cop(idf: Any, cop: float) -> int:
+    """Pin rated COP on every DX heating coil. Returns the number of coils set."""
+    n = 0
+    for cls in _HEATING_COIL_CLASSES:
+        for coil in idf.idfobjects.get(cls, []):
+            if _set_first_present(coil, _HEATING_COP_FIELDS, cop):
+                n += 1
+    return n
+
+
+def set_window_construction(idf: Any, construction_name: str) -> int:
+    """Point every exterior window / glass door at `construction_name`. Returns
+    the number of fenestration surfaces updated."""
+    n = 0
+    for surf in idf.idfobjects.get("FENESTRATIONSURFACE:DETAILED", []):
+        if getattr(surf, "Surface_Type", "Window") in ("Window", "GlassDoor"):
+            surf.Construction_Name = construction_name
+            n += 1
+    for surf in idf.idfobjects.get("WINDOW", []):
+        surf.Construction_Name = construction_name
+        n += 1
+    return n
+
+
+# Output:Meter names the parser (Ch 6) needs; Heating:Gas was renamed
+# Heating:NaturalGas in EnergyPlus 9.x — request both, harmless if one is absent.
+_OUTPUT_METERS = (
+    "Electricity:Facility",
+    "Cooling:Electricity",
+    "Heating:Electricity",
+    "Heating:NaturalGas",
+    "Fans:Electricity",
+    "InteriorLights:Electricity",
+)
+_OUTPUT_VARIABLES = (
+    "Surface Window Heat Gain Energy",
+    "Surface Window Heat Loss Energy",
+    "Surface Window Transmitted Solar Radiation Rate",
+)
+
+
+def add_standard_outputs(idf: Any) -> None:
+    """Add the Output:Meter / Output:Variable objects the parser needs (Ch 4.5)."""
+    existing_meters = {getattr(m, "Key_Name", "") for m in idf.idfobjects.get("OUTPUT:METER", [])}
+    for meter in _OUTPUT_METERS:
+        if meter not in existing_meters:
+            idf.newidfobject("OUTPUT:METER", Key_Name=meter, Reporting_Frequency="Monthly")
+    for var in _OUTPUT_VARIABLES:
+        idf.newidfobject(
+            "OUTPUT:VARIABLE", Key_Value="*", Variable_Name=var, Reporting_Frequency="Monthly"
+        )
