@@ -1,0 +1,11 @@
+# Additional deps for the production EnergyPlus worker image (spec Ch 9.5).
+-r requirements.txt
+celery==5.4.0
+redis==5.2.1
+# IDF generation against bundled DOE prototypes:
+eppy==0.5.63
+geomeppy==0.5.7
+# Server-side PDF rendering for the canonical branded report:
+# weasyprint==63.1
+# Object storage (Cloudflare R2 / S3):
+boto3==1.35.90

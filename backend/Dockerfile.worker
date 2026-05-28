@@ -1,0 +1,26 @@
+# EnergyPlus worker image (spec Ch 9.5). Built on the official EnergyPlus
+# container so the real IDF pipeline runs; falls back to the labeled estimate
+# only if prototypes are missing.
+FROM nrel/energyplus:24.2.0
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 python3-venv python3-pip \
+    libxml2 libxslt1.1 \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Bundle DOE Commercial Prototype IDFs here at build time (energycodes.gov),
+# organized as prototypes/<std>/<BuildingType>/<...>.idf (spec Ch 5.3).
+# COPY prototypes/ /opt/energyplus/prototypes/
+
+COPY requirements-worker.txt requirements.txt ./
+RUN pip3 install --no-cache-dir --break-system-packages -r requirements-worker.txt
+
+COPY . /app/
+
+ENV ENERGYPLUS_DIR=/usr/local/bin \
+    PROTOTYPES_DIR=/opt/energyplus/prototypes \
+    EGRID_DATA_DIR=/app/energy_modeler/data
+
+CMD ["celery", "-A", "workers.eplus_worker", "worker", "--loglevel=info", "--concurrency=1"]

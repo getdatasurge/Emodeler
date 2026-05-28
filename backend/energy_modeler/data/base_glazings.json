@@ -1,0 +1,26 @@
+[
+  {
+    "id": "sgl_clear_3mm", "display_name": "Single pane clear (3mm)",
+    "description": "Monolithic clear float glass, 3mm. Common on older retrofit stock.",
+    "layer_count": 1, "u_factor_btuhrft2F": 1.04, "shgc": 0.81, "vt": 0.88,
+    "igsdb_construction": [102]
+  },
+  {
+    "id": "sgl_bronze_6mm", "display_name": "Single pane bronze (6mm)",
+    "description": "Monolithic bronze-tinted float glass, 6mm.",
+    "layer_count": 1, "u_factor_btuhrft2F": 1.03, "shgc": 0.71, "vt": 0.54,
+    "igsdb_construction": [2026]
+  },
+  {
+    "id": "dbl_clear_3mm_13mmAir", "display_name": "Dual pane clear (3mm / 13mm air / 3mm)",
+    "description": "Standard dual-pane clear IGU, 13mm air gap. The IGSDB reference baseline for film SHGC ratings.",
+    "layer_count": 2, "u_factor_btuhrft2F": 0.49, "shgc": 0.70, "vt": 0.78,
+    "igsdb_construction": [102, "air_13mm", 102]
+  },
+  {
+    "id": "dbl_lowE_3mm_13mmAir", "display_name": "Dual pane low-E (3mm / 13mm air / 3mm low-E)",
+    "description": "Dual-pane IGU with a soft-coat low-E on the inner pane #3 surface.",
+    "layer_count": 2, "u_factor_btuhrft2F": 0.30, "shgc": 0.39, "vt": 0.70,
+    "igsdb_construction": [102, "air_13mm", 9805]
+  }
+]
