@@ -33,3 +33,11 @@ def test_pdf_report_renders(client):
     assert r.status_code == 200
     assert r.headers["content-type"] == "application/pdf"
     assert r.content[:5] == b"%PDF-"
+
+
+def test_audit_bundle_served_locally_without_r2(client):
+    # R2 unconfigured in tests -> the .zip is served from local storage.
+    job_id = _completed_job_id(client)
+    r = client.get(f"/api/jobs/{job_id}/audit-bundle")
+    assert r.status_code == 200
+    assert "zip" in r.headers.get("content-type", "")

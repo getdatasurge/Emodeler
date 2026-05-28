@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 import shutil
 from datetime import datetime, timezone
+from pathlib import Path
 
 from energy_modeler import __version__
 from energy_modeler.config import settings
@@ -83,6 +84,12 @@ def build_audit_bundle(job_id: str, engine_project: EngineProject, comparison) -
     (bundle_dir / "METHODOLOGY.txt").write_text(_methodology_statement(comparison))
 
     archive = shutil.make_archive(str(base / f"audit_bundle_{job_id}"), "zip", bundle_dir)
+    try:  # best-effort R2 upload; the local file remains the fallback
+        from energy_modeler.objectstore import object_store
+
+        object_store.upload_file(Path(archive), object_store.audit_key(job_id))
+    except Exception:  # noqa: BLE001
+        pass
     return archive
 
 

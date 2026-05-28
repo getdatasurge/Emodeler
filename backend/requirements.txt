@@ -22,6 +22,10 @@ sentry-sdk[fastapi]==2.20.0
 # degrades to 503 where the libs are absent — the HTML report always works.
 weasyprint==63.1
 
+# Audit-bundle object storage on Cloudflare R2 / S3 (spec Ch 11). Imported lazily
+# and only used when R2_* env vars are set; otherwise bundles serve from disk.
+boto3==1.35.90
+
 # EnergyPlus IDF generation (optional at runtime — engine degrades gracefully
 # to a labeled analytical estimate when eppy / the E+ binary are absent)
 # eppy==0.5.63

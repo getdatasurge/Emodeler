@@ -33,6 +33,13 @@ class Settings:
     # Error/observability. Sentry is a no-op unless SENTRY_DSN is set.
     sentry_dsn: str | None = _env("SENTRY_DSN")
 
+    # Cloudflare R2 (S3-compatible) for audit bundles (spec Ch 11). When unset,
+    # bundles are served from local storage_dir instead of a signed URL.
+    r2_endpoint: str | None = _env("R2_ENDPOINT")
+    r2_access_key_id: str | None = _env("R2_ACCESS_KEY_ID")
+    r2_secret_access_key: str | None = _env("R2_SECRET_ACCESS_KEY")
+    r2_bucket: str | None = _env("R2_BUCKET")
+
     # EnergyPlus binary. When present the real IDF pipeline runs; otherwise the
     # engine emits a clearly-labeled analytical estimate (NOT for bid use).
     energyplus_dir: str | None = _env("ENERGYPLUS_DIR")
