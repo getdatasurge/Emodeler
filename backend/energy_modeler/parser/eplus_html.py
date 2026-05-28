@@ -29,10 +29,16 @@ def _extract_table(csv_path: Path, report: str, table: str) -> list[list[str]]:
                 continue
             first = raw[0].strip()
             if first.upper().startswith("REPORT:"):
-                in_report = report.lower() in ",".join(raw).lower()
+                # EnergyPlus writes the title with spaces ("Annual Building
+                # Utility Performance Summary"); match space-insensitively.
+                joined = ",".join(raw).lower().replace(" ", "")
+                in_report = report.lower().replace(" ", "") in joined
                 in_table = False
                 continue
-            if in_report and (first == table or table.lower() in first.lower()):
+            if in_report and (
+                first == table
+                or table.lower().replace(" ", "") in first.lower().replace(" ", "")
+            ):
                 in_table = True
                 continue
             if in_report and in_table and first and not first.endswith(":"):
