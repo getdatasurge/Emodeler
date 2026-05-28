@@ -3,6 +3,9 @@ import { api, ApiError } from './api';
 import type { Meta } from './types';
 import { Header } from './components/Header';
 import { EstimateBanner } from './components/EstimateBanner';
+import { Spinner } from './components/ui';
+import { useSession, signOut } from './auth/useSession';
+import { Login } from './auth/Login';
 import { ProjectsList } from './views/ProjectsList';
 import { ProjectIntake } from './views/ProjectIntake';
 import { ProjectWorkspace } from './views/ProjectWorkspace';
@@ -34,9 +37,25 @@ export default function App() {
 
   const showBanner = meta && !meta.energyplus_available && meta.notice;
 
+  // Auth gate — inert (always "signed in") when Supabase env is unset.
+  const { session, loading: authLoading, enabled: authEnabled } = useSession();
+  if (authEnabled && authLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-neutralbg">
+        <Spinner label="Loading…" />
+      </div>
+    );
+  }
+  if (authEnabled && !session) {
+    return <Login />;
+  }
+
   return (
     <div className="min-h-full bg-neutralbg text-ink">
-      <Header onHome={() => setRoute({ view: 'list' })} />
+      <Header
+        onHome={() => setRoute({ view: 'list' })}
+        onSignOut={authEnabled ? () => void signOut() : undefined}
+      />
       {apiDown && (
         <EstimateBanner
           notice="Static preview — the EnergyModeler backend API is not reachable from this site, so live data and analyses are unavailable. Deploy the backend and rebuild with VITE_API_BASE set to its URL to enable the full workflow."

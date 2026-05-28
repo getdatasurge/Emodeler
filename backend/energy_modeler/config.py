@@ -19,6 +19,20 @@ class Settings:
     nrel_api_key: str | None = _env("NREL_API_KEY")
     igsdb_api_token: str | None = _env("IGSDB_API_TOKEN")
 
+    # Supabase auth (spec Ch 1.1). When unset, the API runs in permissive
+    # single-tenant beta mode (no token required). Set AUTH_ENFORCED=true plus
+    # SUPABASE_JWT_SECRET to require a valid bearer JWT on protected routes.
+    supabase_url: str | None = _env("SUPABASE_URL")
+    supabase_jwt_secret: str | None = _env("SUPABASE_JWT_SECRET")
+    auth_enforced: bool = (_env("AUTH_ENFORCED", "false") or "false").lower() in (
+        "1",
+        "true",
+        "yes",
+    )
+
+    # Error/observability. Sentry is a no-op unless SENTRY_DSN is set.
+    sentry_dsn: str | None = _env("SENTRY_DSN")
+
     # EnergyPlus binary. When present the real IDF pipeline runs; otherwise the
     # engine emits a clearly-labeled analytical estimate (NOT for bid use).
     energyplus_dir: str | None = _env("ENERGYPLUS_DIR")
