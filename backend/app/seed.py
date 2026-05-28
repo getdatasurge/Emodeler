@@ -3,11 +3,12 @@ fresh install has something to run immediately."""
 from __future__ import annotations
 
 from .db import SessionLocal
-from .models import Face, Project, Scenario
+from .models import CalculationJob, Face, Project, Scenario
 
 
 def seed_demo() -> None:
     session = SessionLocal()
+    job_id: str | None = None
     try:
         if session.query(Project).count() > 0:
             return
@@ -34,5 +35,32 @@ def seed_demo() -> None:
             project.scenarios.append(Scenario(label=label, film_sku=sku, installed_cost_usd=cost))
         session.add(project)
         session.commit()
+
+        # Pre-run the analysis so a fresh deploy shows a full results dashboard
+        # immediately (the analytical estimate is sub-second; no manual run).
+        job = CalculationJob(
+            project_id=project.id,
+            status="queued",
+            scenarios_total=len(project.scenarios),
+            options={
+                "film_life_yrs": 15,
+                "discount_rate": 0.05,
+                "utility_escalation": 0.025,
+                "include_appendix_g_baseline": False,
+            },
+        )
+        session.add(job)
+        project.status = "in_analysis"
+        session.commit()
+        job_id = job.id
     finally:
         session.close()
+
+    if job_id is not None:
+        # Runs in its own session; sets the project to 'completed' on success.
+        from .pipeline import run_job
+
+        try:
+            run_job(job_id)
+        except Exception:  # noqa: BLE001 - demo seeding must never block startup
+            pass

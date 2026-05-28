@@ -5,6 +5,7 @@ import type {
   CalcRunRequest,
   CalcRunResponse,
   ClimateZone,
+  Comparison,
   Egrid,
   FaceInput,
   Film,
@@ -108,6 +109,11 @@ export const api = {
       body: JSON.stringify(body),
     }),
   getJob: (jobId: string) => request<Job>(`/api/jobs/${jobId}`),
+  jobResults: (jobId: string) => request<Comparison>(`/api/jobs/${jobId}/results`),
+  projectResults: (projectId: string) =>
+    request<{ job_id: string; engine_mode: string; comparison: Comparison }>(
+      `/api/projects/${projectId}/results`,
+    ),
 };
 
 // Absolute-ish URLs for links the browser opens directly (reports / downloads).

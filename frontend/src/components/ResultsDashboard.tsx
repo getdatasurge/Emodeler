@@ -1,18 +1,19 @@
 import { auditBundleUrl, reportUrl } from '../api';
-import type { JobCompleted } from '../types';
+import type { Comparison, RunResult } from '../types';
 import { currency, integerWithCommas, irr, kw, payback } from '../format';
 import { recommendedIndex } from '../recommend';
 import { Button, Card } from './ui';
+import { CompareBars } from './charts';
 
-function StatTile({
-  label,
-  value,
-  sub,
-}: {
-  label: string;
-  value: string;
-  sub?: string;
-}) {
+const ORIENTATION_NAMES: Record<string, string> = {
+  S: 'South',
+  E: 'East',
+  W: 'West',
+  N: 'North',
+  H: 'Horizontal',
+};
+
+function StatTile({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
     <Card className="text-center">
       <div className="text-2xl font-bold text-ink">{value}</div>
@@ -24,97 +25,177 @@ function StatTile({
   );
 }
 
-// Simple CSS bar chart comparing scenarios by annual $ savings.
-function SavingsBars({ job }: { job: JobCompleted }) {
-  const results = job.scenario_results;
-  const max = Math.max(1, ...results.map((r) => r.delta_cost_usd_per_year));
-  const recIdx = recommendedIndex(results);
+function solarByOrientation(run: RunResult): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const w of run.windows) {
+    const o = w.surface_name.split('_')[1] ?? '?';
+    out[o] = (out[o] ?? 0) + w.annual_solar_transmitted_kwh;
+  }
+  return out;
+}
+
+function EndUseCard({ baseline, after }: { baseline: RunResult; after: RunResult }) {
+  const b = baseline.annual_end_uses;
+  const a = after.annual_end_uses;
+  const rows = [
+    { label: 'Cooling', before: b.cooling_elec_kwh, after: a.cooling_elec_kwh },
+    { label: 'Heating', before: b.heating_elec_kwh, after: a.heating_elec_kwh },
+    { label: 'Lighting', before: b.interior_lighting_kwh, after: a.interior_lighting_kwh },
+    { label: 'Equipment', before: b.interior_equipment_kwh, after: a.interior_equipment_kwh },
+    { label: 'Fans', before: b.fans_kwh, after: a.fans_kwh },
+  ].filter((r) => r.before > 0 || r.after > 0);
   return (
-    <div className="space-y-3">
-      {results.map((r, i) => {
-        const pct = Math.max(0, (r.delta_cost_usd_per_year / max) * 100);
-        return (
-          <div key={i}>
-            <div className="mb-1 flex justify-between text-xs text-ink/70">
-              <span className="font-medium">
-                {r.scenario_label} · {r.film_sku}
-              </span>
-              <span>{currency(r.delta_cost_usd_per_year)}/yr</span>
-            </div>
-            <div className="h-5 w-full overflow-hidden rounded bg-neutralbg">
-              <div
-                className={`h-full rounded ${i === recIdx ? 'bg-amber' : 'bg-ink/40'}`}
-                style={{ width: `${pct}%` }}
-              />
-            </div>
-          </div>
-        );
-      })}
-    </div>
+    <Card>
+      <h3 className="mb-1 font-semibold text-ink">Annual energy by end use</h3>
+      <p className="mb-4 text-xs text-ink/50">
+        Baseline vs. {after.scenario_label} (kWh/yr)
+      </p>
+      <CompareBars rows={rows} fmt={(n) => integerWithCommas(n)} />
+    </Card>
   );
 }
 
-function ComparisonTable({ job }: { job: JobCompleted }) {
-  const results = job.scenario_results;
+function SolarCard({ baseline, after }: { baseline: RunResult; after: RunResult }) {
+  const bo = solarByOrientation(baseline);
+  const ao = solarByOrientation(after);
+  const order = ['S', 'E', 'W', 'N', 'H'];
+  const rows = order
+    .filter((o) => o in bo)
+    .map((o) => ({ label: ORIENTATION_NAMES[o] ?? o, before: bo[o], after: ao[o] ?? 0 }));
+  return (
+    <Card>
+      <h3 className="mb-1 font-semibold text-ink">Solar gain rejected by face</h3>
+      <p className="mb-4 text-xs text-ink/50">
+        Transmitted solar through glazing (kWh/yr)
+      </p>
+      <CompareBars rows={rows} fmt={(n) => integerWithCommas(n)} />
+    </Card>
+  );
+}
+
+function SavingsCard({ comparison }: { comparison: Comparison }) {
+  const results = comparison.films;
+  const max = Math.max(1, ...results.map((r) => r.delta_cost_usd_per_year));
   const recIdx = recommendedIndex(results);
-  const cols: { key: string; label: string }[] = [
-    { key: 'scenario', label: 'Scenario' },
-    { key: 'cool', label: 'ΔCooling kWh' },
-    { key: 'heat', label: 'ΔHeating kWh' },
-    { key: 'total', label: 'ΔTotal kWh' },
-    { key: 'cost', label: '$/yr' },
-    { key: 'projcost', label: 'Project Cost' },
-    { key: 'payback', label: 'Payback' },
-    { key: 'npv', label: 'NPV 15yr' },
-    { key: 'irr', label: 'IRR%' },
-    { key: 'co2', label: 'CO2/yr lb' },
+  return (
+    <Card>
+      <h3 className="mb-4 font-semibold text-ink">Annual $ savings by scenario</h3>
+      <div className="space-y-3">
+        {results.map((r, i) => {
+          const pct = Math.max(0, (r.delta_cost_usd_per_year / max) * 100);
+          return (
+            <div key={i}>
+              <div className="mb-1 flex justify-between text-xs text-ink/70">
+                <span className="font-medium">
+                  {i === recIdx && (
+                    <span className="mr-1 rounded bg-amber px-1 py-0.5 text-[9px] font-bold uppercase text-white">
+                      Rec
+                    </span>
+                  )}
+                  {r.scenario_label} · {r.film_sku}
+                </span>
+                <span className="font-semibold text-ink">
+                  {currency(r.delta_cost_usd_per_year)}/yr
+                </span>
+              </div>
+              <div className="h-5 w-full overflow-hidden rounded bg-neutralbg">
+                <div
+                  className={`h-full rounded ${i === recIdx ? 'bg-amber' : 'bg-ink/40'}`}
+                  style={{ width: `${pct}%` }}
+                />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </Card>
+  );
+}
+
+function Badge({ source }: { source: 'user' | 'default' }) {
+  return source === 'user' ? (
+    <span className="rounded bg-amber/20 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-amber-dark">
+      measured
+    </span>
+  ) : (
+    <span className="rounded bg-ink/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-ink/50">
+      default
+    </span>
+  );
+}
+
+function AssumptionsCard({ comparison }: { comparison: Comparison }) {
+  const b = comparison.building;
+  if (!b) return null;
+  const num = (n: number, d = 2) => (Number.isFinite(n) ? Number(n.toFixed(d)) : n);
+  const rows: { label: string; value: string; key: string }[] = [
+    { label: 'Cooling COP', value: String(num(b.cooling_cop)), key: 'cooling_cop' },
+    { label: 'Heating COP', value: String(num(b.heating_cop)), key: 'heating_cop' },
+    { label: 'HVAC system', value: b.hvac_system_type.replace(/_/g, ' '), key: 'hvac_system_type' },
+    { label: 'Wall U', value: String(num(b.wall_u_factor, 3)), key: 'wall_u_factor' },
+    { label: 'Wall area', value: `${integerWithCommas(b.wall_area_sf)} sf`, key: 'wall_area_sf' },
+    { label: 'Roof type', value: b.roof_type.replace(/_/g, ' '), key: 'roof_type' },
+    { label: 'Roof U', value: String(num(b.roof_u_factor, 3)), key: 'roof_u_factor' },
+    { label: 'Roof absorptance', value: String(num(b.roof_absorptance)), key: 'roof_absorptance' },
+    { label: 'Operating hrs/wk', value: String(num(b.operating_hours_per_week, 0)), key: 'operating_hours_per_week' },
+    { label: 'Floors', value: String(b.num_floors), key: 'num_floors' },
   ];
+  return (
+    <Card>
+      <h3 className="mb-1 font-semibold text-ink">Modeling assumptions</h3>
+      <p className="mb-3 text-xs text-ink/50">
+        As-built inputs drive the estimate; blanks use prototype / ASHRAE 90.1
+        defaults.
+      </p>
+      <dl className="grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-2">
+        {rows.map((r) => (
+          <div key={r.key} className="flex items-center justify-between gap-2 border-b border-ink/5 pb-1.5">
+            <dt className="text-xs text-ink/60">{r.label}</dt>
+            <dd className="flex items-center gap-2 text-sm font-medium text-ink">
+              <span className="capitalize">{r.value}</span>
+              <Badge source={b.sources[r.key] === 'user' ? 'user' : 'default'} />
+            </dd>
+          </div>
+        ))}
+      </dl>
+    </Card>
+  );
+}
+
+function ComparisonTable({ comparison }: { comparison: Comparison }) {
+  const results = comparison.films;
+  const recIdx = recommendedIndex(results);
+  const cols = ['Scenario', 'ΔCooling', 'ΔHeating', 'ΔTotal', '$/yr', 'Project Cost', 'Payback', 'NPV 15yr', 'IRR', 'CO₂/yr'];
   return (
     <div className="overflow-x-auto rounded-md border border-ink/10">
       <table className="w-full text-sm">
         <thead className="bg-neutralbg text-left text-xs uppercase tracking-wide text-ink/60">
           <tr>
             {cols.map((c) => (
-              <th key={c.key} className="whitespace-nowrap px-3 py-2">
-                {c.label}
-              </th>
+              <th key={c} className="whitespace-nowrap px-3 py-2">{c}</th>
             ))}
           </tr>
         </thead>
         <tbody>
           {results.map((r, i) => (
-            <tr
-              key={i}
-              className={`border-t border-ink/10 ${i === recIdx ? 'bg-amber/10' : ''}`}
-            >
+            <tr key={i} className={`border-t border-ink/10 ${i === recIdx ? 'bg-amber/10' : ''}`}>
               <td className="whitespace-nowrap px-3 py-2 font-medium text-ink">
                 {i === recIdx && (
                   <span className="mr-1 rounded bg-amber px-1.5 py-0.5 text-[10px] font-bold uppercase text-white">
                     Rec
                   </span>
                 )}
-                {r.scenario_label}{' '}
-                <span className="text-ink/50">{r.film_sku}</span>
+                {r.scenario_label} <span className="text-ink/50">{r.film_sku}</span>
               </td>
-              <td className="px-3 py-2">
-                {integerWithCommas(r.delta_cooling_kwh)}
-              </td>
-              <td className="px-3 py-2">
-                {integerWithCommas(r.delta_heating_kwh)}
-              </td>
-              <td className="px-3 py-2">
-                {integerWithCommas(r.delta_total_kwh)}
-              </td>
-              <td className="px-3 py-2">
-                {currency(r.delta_cost_usd_per_year)}
-              </td>
+              <td className="px-3 py-2">{integerWithCommas(r.delta_cooling_kwh)}</td>
+              <td className="px-3 py-2">{integerWithCommas(r.delta_heating_kwh)}</td>
+              <td className="px-3 py-2">{integerWithCommas(r.delta_total_kwh)}</td>
+              <td className="px-3 py-2 font-medium">{currency(r.delta_cost_usd_per_year)}</td>
               <td className="px-3 py-2">{currency(r.project_cost_usd)}</td>
               <td className="px-3 py-2">{payback(r.simple_payback_years)}</td>
               <td className="px-3 py-2">{currency(r.npv_15yr_usd)}</td>
               <td className="px-3 py-2">{irr(r.irr_15yr_pct)}</td>
-              <td className="px-3 py-2">
-                {integerWithCommas(r.delta_co2_lb_per_year)}
-              </td>
+              <td className="px-3 py-2">{integerWithCommas(r.delta_co2_lb_per_year)}</td>
             </tr>
           ))}
         </tbody>
@@ -123,23 +204,32 @@ function ComparisonTable({ job }: { job: JobCompleted }) {
   );
 }
 
-export function ResultsDashboard({ job }: { job: JobCompleted }) {
-  const results = job.scenario_results;
+export function ResultsDashboard({
+  comparison,
+  jobId,
+}: {
+  comparison: Comparison;
+  jobId: string;
+}) {
+  const results = comparison.films;
   const recIdx = recommendedIndex(results);
   const rec = recIdx >= 0 ? results[recIdx] : null;
+  const recRun =
+    comparison.film_runs.find((r) => r.scenario_label === rec?.scenario_label) ??
+    comparison.film_runs[0];
   const showPreliminary =
-    (job.warnings && job.warnings.length > 0) ||
-    job.engine_mode !== 'energyplus';
+    comparison.engine_mode !== 'energyplus' ||
+    (comparison.warnings && comparison.warnings.length > 0);
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-lg font-semibold text-ink">Results</h2>
         <div className="flex gap-2">
-          <a href={reportUrl(job.job_id)} target="_blank" rel="noreferrer">
+          <a href={reportUrl(jobId)} target="_blank" rel="noreferrer">
             <Button>Open Branded Report</Button>
           </a>
-          <a href={auditBundleUrl(job.job_id)}>
+          <a href={auditBundleUrl(jobId)}>
             <Button variant="secondary">Download Audit Bundle (.zip)</Button>
           </a>
         </div>
@@ -147,11 +237,9 @@ export function ResultsDashboard({ job }: { job: JobCompleted }) {
 
       {showPreliminary && (
         <div className="rounded-md border border-amber-dark/30 bg-amber/15 px-4 py-3 text-sm text-ink">
-          <span className="font-semibold text-amber-dark">
-            Preliminary estimate.
-          </span>{' '}
-          {job.warnings && job.warnings.length > 0
-            ? job.warnings[0]
+          <span className="font-semibold text-amber-dark">Preliminary estimate.</span>{' '}
+          {comparison.warnings && comparison.warnings.length > 0
+            ? comparison.warnings[0]
             : 'These results were not produced by EnergyPlus and are not valid for bids.'}
         </div>
       )}
@@ -163,16 +251,10 @@ export function ResultsDashboard({ job }: { job: JobCompleted }) {
             value={`${currency(rec.delta_cost_usd_per_year)}/yr`}
             sub={`${rec.scenario_label} · ${rec.film_sku}`}
           />
+          <StatTile label="Simple payback" value={payback(rec.simple_payback_years)} />
+          <StatTile label="Peak demand cut" value={kw(rec.delta_peak_kw)} />
           <StatTile
-            label="Simple payback"
-            value={payback(rec.simple_payback_years)}
-          />
-          <StatTile
-            label="Peak demand cut"
-            value={kw(rec.delta_peak_kw)}
-          />
-          <StatTile
-            label="CO2 avoided"
+            label="CO₂ avoided"
             value={`${integerWithCommas(rec.delta_co2_lb_per_year)} lb`}
             sub="per year"
           />
@@ -180,22 +262,27 @@ export function ResultsDashboard({ job }: { job: JobCompleted }) {
       ) : (
         <Card>
           <p className="text-sm text-ink/70">
-            No scenario produced positive savings with a valid payback. Review
-            the comparison below.
+            No scenario produced positive savings with a valid payback. Review the
+            comparison below.
           </p>
         </Card>
       )}
 
-      <Card>
-        <h3 className="mb-3 font-semibold text-ink">Scenario comparison</h3>
-        <ComparisonTable job={job} />
-      </Card>
+      {recRun && (
+        <div className="grid gap-6 lg:grid-cols-2">
+          <EndUseCard baseline={comparison.baseline} after={recRun} />
+          <SolarCard baseline={comparison.baseline} after={recRun} />
+        </div>
+      )}
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <SavingsCard comparison={comparison} />
+        <AssumptionsCard comparison={comparison} />
+      </div>
 
       <Card>
-        <h3 className="mb-3 font-semibold text-ink">
-          Annual savings by scenario
-        </h3>
-        <SavingsBars job={job} />
+        <h3 className="mb-3 font-semibold text-ink">Scenario comparison</h3>
+        <ComparisonTable comparison={comparison} />
       </Card>
     </div>
   );
