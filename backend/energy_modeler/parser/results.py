@@ -3,10 +3,12 @@
 EnergyPlus parser or the analytical estimate."""
 from __future__ import annotations
 
+import dataclasses
 import math
 from datetime import datetime, timezone
 
-from .. import carbon, economics
+from .. import carbon, datastore, economics
+from ..engine import building
 from ..engine.inputs import EngineProject
 from ..schemas import FilmComparison, ProjectComparison, RunResult
 
@@ -69,6 +71,11 @@ def build_comparison(
             )
         )
 
+    proto = datastore.get_prototype(project.building_type)
+    resolved_building = (
+        dataclasses.asdict(building.resolve(project, proto)) if proto else None
+    )
+
     warnings = list(baseline.warnings)
     return ProjectComparison(
         project_id=project.project_id,
@@ -76,6 +83,7 @@ def build_comparison(
         baseline=baseline,
         films=films,
         film_runs=film_runs,
+        building=resolved_building,
         generated_at=datetime.now(timezone.utc),
         warnings=warnings,
     )

@@ -39,3 +39,41 @@ class EngineProject:
     faces: list[EngineFace] = field(default_factory=list)
     scenarios: list[EngineScenario] = field(default_factory=list)
     options: EngineOptions = field(default_factory=EngineOptions)
+
+    # As-built building characterization (spec Ch 5.3). All optional: blank
+    # values fall back to prototype / climate-zone defaults via engine.building.
+    # HVAC
+    hvac_cooling_cop: float | None = None
+    hvac_heating_cop: float | None = None
+    hvac_system_type: str | None = None
+    # Opaque envelope
+    wall_area_sf: float | None = None
+    wall_u_factor: float | None = None
+    wall_absorptance: float | None = None
+    roof_area_sf: float | None = None
+    roof_type: str | None = None
+    roof_u_factor: float | None = None
+    roof_absorptance: float | None = None
+    # Operations & geometry
+    operating_hours_per_week: float | None = None
+    num_floors: int | None = None
+    floor_to_floor_ft: float | None = None
+
+
+# Canonical building-characterization field names, shared by the ORM model, the
+# API schema, and the persistence -> engine mapping so they can't drift.
+BUILDING_FIELDS: tuple[str, ...] = (
+    "hvac_cooling_cop",
+    "hvac_heating_cop",
+    "hvac_system_type",
+    "wall_area_sf",
+    "wall_u_factor",
+    "wall_absorptance",
+    "roof_area_sf",
+    "roof_type",
+    "roof_u_factor",
+    "roof_absorptance",
+    "operating_hours_per_week",
+    "num_floors",
+    "floor_to_floor_ft",
+)

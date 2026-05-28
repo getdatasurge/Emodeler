@@ -51,6 +51,48 @@ export function ProjectIntake({
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
+  // Optional as-built building characterization. Blank = use prototype default.
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [adv, setAdv] = useState<Record<string, string>>({});
+  const setAdvField =
+    (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
+      setAdv((p) => ({ ...p, [k]: e.target.value }));
+
+  const ADV_NUM_FIELDS = [
+    'hvac_cooling_cop', 'hvac_heating_cop', 'wall_area_sf', 'wall_u_factor',
+    'wall_absorptance', 'roof_area_sf', 'roof_u_factor', 'roof_absorptance',
+    'operating_hours_per_week', 'num_floors', 'floor_to_floor_ft',
+  ];
+  const ADV_STR_FIELDS = ['hvac_system_type', 'roof_type'];
+
+  function advPayload(): Record<string, number | string> {
+    const out: Record<string, number | string> = {};
+    for (const k of ADV_NUM_FIELDS) {
+      const v = adv[k]?.trim();
+      if (v) out[k] = Number(v);
+    }
+    for (const k of ADV_STR_FIELDS) {
+      const v = adv[k]?.trim();
+      if (v) out[k] = v;
+    }
+    return out;
+  }
+
+  function advNum(k: string, label: string, ph: string, step = 'any') {
+    return (
+      <div>
+        <Label>{label}</Label>
+        <TextInput
+          type="number"
+          step={step}
+          value={adv[k] ?? ''}
+          onChange={setAdvField(k)}
+          placeholder={ph}
+        />
+      </div>
+    );
+  }
+
   async function handleZipBlur() {
     if (!zip || zip.length < 5) return;
     setZipLoading(true);
@@ -105,6 +147,7 @@ export function ProjectIntake({
         climate_zone: climate?.climate_zone ?? null,
         egrid_subregion: egrid?.subregion ?? null,
         utility_rate_usd_kwh: rateEdited && rate ? Number(rate) : null,
+        ...advPayload(),
       });
       onCreated(project);
     } catch (e) {
@@ -242,6 +285,79 @@ export function ProjectIntake({
                 {utility && (
                   <p className="mt-1 text-xs text-ink/50">{utility.source}</p>
                 )}
+              </div>
+            </div>
+          )}
+        </Card>
+
+        <Card>
+          <button
+            type="button"
+            onClick={() => setShowAdvanced((s) => !s)}
+            className="flex w-full items-center justify-between text-left"
+          >
+            <SectionTitle>Building details (advanced)</SectionTitle>
+            <span className="text-sm text-ink/50">{showAdvanced ? '–' : '+'}</span>
+          </button>
+          <p className="-mt-1 mb-3 text-xs text-ink/50">
+            Optional. Leave blank to use the DOE prototype &amp; ASHRAE 90.1
+            climate-zone defaults. Supplying the as-built HVAC efficiency and
+            envelope sharpens the estimate (and feeds the EnergyPlus engine).
+          </p>
+          {showAdvanced && (
+            <div className="space-y-5">
+              <div>
+                <h4 className="mb-2 text-xs font-bold uppercase tracking-wide text-ink/50">
+                  HVAC
+                </h4>
+                <div className="grid gap-4 sm:grid-cols-3">
+                  {advNum('hvac_cooling_cop', 'Cooling COP', 'proto default')}
+                  {advNum('hvac_heating_cop', 'Heating COP', '3.0')}
+                  <div>
+                    <Label>System type</Label>
+                    <Select value={adv.hvac_system_type ?? ''} onChange={setAdvField('hvac_system_type')}>
+                      <option value="">(default)</option>
+                      <option value="packaged_dx">Packaged DX / RTU</option>
+                      <option value="heat_pump">Heat pump</option>
+                      <option value="chiller">Chiller + AHU</option>
+                      <option value="vrf">VRF</option>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+              <div>
+                <h4 className="mb-2 text-xs font-bold uppercase tracking-wide text-ink/50">
+                  Walls &amp; roof
+                </h4>
+                <div className="grid gap-4 sm:grid-cols-3">
+                  {advNum('wall_area_sf', 'Wall area (sf)', 'derived')}
+                  {advNum('wall_u_factor', 'Wall U (BTU/h·ft²·F)', 'code default')}
+                  {advNum('wall_absorptance', 'Wall solar absorptance', '0.60')}
+                  <div>
+                    <Label>Roof type</Label>
+                    <Select value={adv.roof_type ?? ''} onChange={setAdvField('roof_type')}>
+                      <option value="">(default)</option>
+                      <option value="membrane">Membrane (dark)</option>
+                      <option value="cool_roof">Cool roof (white)</option>
+                      <option value="metal">Metal</option>
+                      <option value="built_up">Built-up</option>
+                      <option value="shingle">Shingle</option>
+                    </Select>
+                  </div>
+                  {advNum('roof_area_sf', 'Roof area (sf)', 'footprint')}
+                  {advNum('roof_u_factor', 'Roof U (BTU/h·ft²·F)', 'code default')}
+                  {advNum('roof_absorptance', 'Roof solar absorptance', '0.70')}
+                </div>
+              </div>
+              <div>
+                <h4 className="mb-2 text-xs font-bold uppercase tracking-wide text-ink/50">
+                  Operations &amp; geometry
+                </h4>
+                <div className="grid gap-4 sm:grid-cols-3">
+                  {advNum('operating_hours_per_week', 'Operating hours / week', 'proto default')}
+                  {advNum('num_floors', '# floors', 'proto default')}
+                  {advNum('floor_to_floor_ft', 'Floor-to-floor (ft)', '13')}
+                </div>
               </div>
             </div>
           )}

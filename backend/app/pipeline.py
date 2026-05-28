@@ -13,6 +13,7 @@ from energy_modeler import __version__
 from energy_modeler.config import settings
 from energy_modeler.engine import idf_builder, runner
 from energy_modeler.engine.inputs import (
+    BUILDING_FIELDS,
     EngineFace,
     EngineOptions,
     EngineProject,
@@ -42,6 +43,7 @@ def to_engine_project(project: Project, options: EngineOptions) -> EngineProject
             for s in project.scenarios
         ],
         options=options,
+        **{k: getattr(project, k) for k in BUILDING_FIELDS},
     )
 
 

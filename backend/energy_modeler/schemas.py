@@ -72,6 +72,9 @@ class ProjectComparison(BaseModel):
     baseline: RunResult
     films: list[FilmComparison] = Field(default_factory=list)
     film_runs: list[RunResult] = Field(default_factory=list)
+    # Resolved as-built building characterization (HVAC/envelope/ops) with a
+    # per-field 'user' | 'default' provenance map, for the inputs/audit display.
+    building: dict | None = None
     generated_at: datetime
     warnings: list[str] = Field(default_factory=list)
     audit_bundle_path: str | None = None

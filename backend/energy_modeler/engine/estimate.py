@@ -17,24 +17,20 @@ import uuid
 
 from .. import datastore
 from ..schemas import EnergyEndUses, PeakDemand, RunResult, WindowSurfaceResult
-from . import glazing, weather
+from . import building, glazing, weather
 from .film_catalog import resolve as resolve_film
 from .inputs import EngineProject
 from .weather import FACE_GEOMETRY
 
 SF_TO_M2 = 0.092903
 
-# Effective cooling COP for converting a window solar-load change to cooling
-# electricity. 3.0 is the spec glossary default for packaged commercial cooling
-# (Ch 12.3). Fraction of window solar gain that lands as cooling load during the
-# cooling season (pickup), and the heating-season counterparts.
-EFFECTIVE_COOLING_COP = 3.0
+# Cooling and heating COP are resolved per-project (engine.building), defaulting
+# to the DOE prototype `cop`. The pickups are the fraction of the window
+# solar-load change that lands as cooling load in the cooling season, and the
+# smaller fraction of lost winter solar that raises heating energy (short days,
+# low sun, internal gains, and much commercial heating is gas not electric).
 COOLING_PICKUP = 0.95
-# Heating penalty is intentionally modest: only a fraction of lost winter solar
-# gain raises heating energy (short days, low sun, occupied-hour internal gains,
-# and much commercial heating is gas rather than electric).
 HEATING_PICKUP = 0.30
-HEATING_COP = 3.0
 # Share of the prototype's average cooling that is NOT window-solar driven
 # (internal loads, ventilation, envelope conduction). The window-solar portion
 # is recomputed from the project's actual glazing for self-consistency.
@@ -91,8 +87,14 @@ def _baseline_end_uses(meta: dict, area_sf: float) -> EnergyEndUses:
     )
 
 
-def _window_results(project: EngineProject, shgc_provider) -> list[WindowSurfaceResult]:
-    """shgc_provider(base_glazing_dict) -> shgc to use for the face."""
+def _window_results(
+    project: EngineProject, props_provider, bldg: building.ResolvedBuilding
+) -> list[WindowSurfaceResult]:
+    """props_provider(base_glazing_dict) -> GlazingProperties (shgc + U) for the face.
+
+    Heat gain = transmitted solar + summer conduction (U.A.CDD); heat loss =
+    winter conduction (U.A.HDD). Peak gain uses an orientation-specific design
+    irradiance (west highest, north lowest), not a single flat value."""
     poa = weather.monthly_poa_by_face(project.zip, project.climate_zone)
     out: list[WindowSurfaceResult] = []
     for i, face in enumerate(project.faces):
@@ -101,8 +103,11 @@ def _window_results(project: EngineProject, shgc_provider) -> list[WindowSurface
             continue
         area_m2 = face.area_sqft * SF_TO_M2
         annual_poa = sum(poa.get(face.orientation, [0.0] * 12))
-        shgc = shgc_provider(base)
+        props = props_provider(base)
+        shgc = props.shgc
         transmitted = annual_poa * area_m2 * shgc
+        cond_loss = building.conduction_kwh(props.u_factor_btuhrft2F, face.area_sqft, bldg.hdd65)
+        cond_gain = building.conduction_kwh(props.u_factor_btuhrft2F, face.area_sqft, bldg.cdd65)
         tilt, azimuth = FACE_GEOMETRY.get(face.orientation, (90.0, 180.0))
         out.append(
             WindowSurfaceResult(
@@ -111,9 +116,9 @@ def _window_results(project: EngineProject, shgc_provider) -> list[WindowSurface
                 tilt_deg=tilt,
                 area_m2=round(area_m2, 2),
                 annual_solar_transmitted_kwh=round(transmitted, 1),
-                annual_heat_gain_kwh=round(transmitted, 1),
-                annual_heat_loss_kwh=0.0,
-                peak_heat_gain_rate_w=round(area_m2 * shgc * 700.0, 1),
+                annual_heat_gain_kwh=round(transmitted + cond_gain, 1),
+                annual_heat_loss_kwh=round(cond_loss, 1),
+                peak_heat_gain_rate_w=round(area_m2 * shgc * building.peak_poa(face.orientation), 1),
             )
         )
     return out
@@ -145,8 +150,8 @@ def _window_solar_loads(project: EngineProject, shgc_provider) -> tuple[float, f
     return cooling_thermal, heating_thermal
 
 
-def _cooling_elec(window_cooling_thermal: float) -> float:
-    return window_cooling_thermal * COOLING_PICKUP / EFFECTIVE_COOLING_COP
+def _cooling_elec(window_cooling_thermal: float, cooling_cop: float) -> float:
+    return window_cooling_thermal * COOLING_PICKUP / cooling_cop
 
 
 def _make_run(
@@ -177,6 +182,10 @@ def run_project(project: EngineProject) -> tuple[RunResult, list[RunResult]]:
     z = datastore.get_zip(project.zip)
     station = z["station_city"] if z else "Unknown"
 
+    # Resolve as-built HVAC / envelope / operations against prototype + climate
+    # defaults. The cooling COP is the dominant lever on $ savings.
+    bldg = building.resolve(project, meta)
+
     proto = _baseline_end_uses(meta, project.gross_floor_area_sf)
     # Split the prototype's cooling into a non-window portion (kept fixed) and a
     # window-solar portion (recomputed from the project's actual glazing).
@@ -186,7 +195,7 @@ def run_project(project: EngineProject) -> tuple[RunResult, list[RunResult]]:
         return float(base["shgc"])
 
     base_cool_thermal, _ = _window_solar_loads(project, base_shgc)
-    baseline_window_cooling = _cooling_elec(base_cool_thermal)
+    baseline_window_cooling = _cooling_elec(base_cool_thermal, bldg.cooling_cop)
 
     base_uses = EnergyEndUses(
         heating_elec_kwh=proto.heating_elec_kwh,
@@ -203,7 +212,10 @@ def run_project(project: EngineProject) -> tuple[RunResult, list[RunResult]]:
         ),
         total_gas_kwh=0.0,
     )
-    baseline = _make_run("baseline", base_uses, station, _window_results(project, base_shgc))
+    baseline = _make_run(
+        "baseline", base_uses, station,
+        _window_results(project, lambda b: glazing.base_properties(b), bldg),
+    )
 
     film_runs: list[RunResult] = []
     for scenario in project.scenarios:
@@ -214,9 +226,9 @@ def run_project(project: EngineProject) -> tuple[RunResult, list[RunResult]]:
 
         film_cool_thermal, film_heat_thermal = _window_solar_loads(project, applied_shgc)
         _, base_heat_thermal = _window_solar_loads(project, base_shgc)
-        film_window_cooling = _cooling_elec(film_cool_thermal)
+        film_window_cooling = _cooling_elec(film_cool_thermal, bldg.cooling_cop)
         # Lost beneficial winter solar gain becomes a heating penalty.
-        heating_penalty = max(0.0, base_heat_thermal - film_heat_thermal) * HEATING_PICKUP / HEATING_COP
+        heating_penalty = max(0.0, base_heat_thermal - film_heat_thermal) * HEATING_PICKUP / bldg.heating_cop
 
         film_cooling = nonwindow_cooling + film_window_cooling
         film_heating = proto.heating_elec_kwh + heating_penalty
@@ -236,6 +248,9 @@ def run_project(project: EngineProject) -> tuple[RunResult, list[RunResult]]:
             total_gas_kwh=0.0,
         )
         film_runs.append(
-            _make_run(scenario.label, film_uses, station, _window_results(project, applied_shgc))
+            _make_run(
+                scenario.label, film_uses, station,
+                _window_results(project, lambda b, _f=film: glazing.applied_properties(b, _f), bldg),
+            )
         )
     return baseline, film_runs
