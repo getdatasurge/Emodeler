@@ -44,6 +44,7 @@ def build_comparison(
         )
         delta_cost = round(delta_total * rate, 2)
         delta_co2 = round(carbon.lb_co2_avoided(delta_total, project.zip), 1)
+        delta_co2e = round(carbon.co2e_kg_avoided(delta_total, project.zip), 1)
 
         payback = economics.simple_payback(cost, delta_cost)
         npv = economics.npv(
@@ -64,6 +65,7 @@ def build_comparison(
                 delta_peak_kw=delta_peak,
                 delta_cost_usd_per_year=delta_cost,
                 delta_co2_lb_per_year=delta_co2,
+                delta_co2e_kg_per_year=delta_co2e,
                 project_cost_usd=cost,
                 simple_payback_years=_nan_to_none(payback),
                 npv_15yr_usd=round(npv, 2),

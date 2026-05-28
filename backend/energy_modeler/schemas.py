@@ -60,6 +60,7 @@ class FilmComparison(BaseModel):
     delta_peak_kw: float
     delta_cost_usd_per_year: float
     delta_co2_lb_per_year: float
+    delta_co2e_kg_per_year: float = 0.0
     project_cost_usd: float
     simple_payback_years: float
     npv_15yr_usd: float

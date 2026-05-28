@@ -38,6 +38,7 @@ def test_fx01_zephyrhills_plausible():
     assert f.delta_cooling_kwh <= baseline.annual_end_uses.cooling_elec_kwh
     assert f.delta_total_kwh > 0
     assert f.delta_co2_lb_per_year > 0
+    assert f.delta_co2e_kg_per_year > 0
     assert not math.isnan(f.simple_payback_years) and f.simple_payback_years > 0
     # Loose envelope around the dealer Excel sanity point ($5,594/yr, 7.8 yr).
     assert 3000 < f.delta_cost_usd_per_year < 9000
@@ -104,6 +105,21 @@ def test_window_conduction_and_orientation_peaks():
     assert all(x.annual_heat_loss_kwh > 0 for x in baseline.windows)
     # West sees a higher cooling-design peak than north.
     assert by_orient["W"].peak_heat_gain_rate_w > by_orient["N"].peak_heat_gain_rate_w
+
+
+def test_thinsulate_improves_u_factor_standard_film_does_not():
+    from energy_modeler import datastore
+    from energy_modeler.engine import glazing
+    from energy_modeler.engine.film_catalog import resolve as resolve_film
+
+    base = datastore.get_base_glazing("dbl_clear_3mm_13mmAir")
+    base_u = base["u_factor_btuhrft2F"]
+    th = glazing.applied_properties(base, resolve_film("3M-TH40"))  # Thinsulate low-e
+    pr = glazing.applied_properties(base, resolve_film("3M-PR40X"))  # solar-control
+    # FX-03 case: a U-improving film lowers the assembly U; a standard solar
+    # film leaves U ~unchanged (spec 0.5.10).
+    assert th.u_factor_btuhrft2F < base_u
+    assert pr.u_factor_btuhrft2F == base_u
 
 
 def test_unknown_film_raises():
