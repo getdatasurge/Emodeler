@@ -14,7 +14,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 COPY requirements-worker.txt requirements.txt ./
-RUN pip3 install --no-cache-dir --break-system-packages -r requirements-worker.txt
+# Upgrade pip first: the base image ships pip 22.0.2, which predates
+# --break-system-packages (added in pip 23.0) and has a weaker resolver.
+RUN pip3 install --no-cache-dir --upgrade pip \
+    && pip3 install --no-cache-dir --break-system-packages -r requirements-worker.txt
 
 COPY . /app/
 
