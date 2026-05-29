@@ -1,11 +1,33 @@
 """LEED EAc Optimize Energy Performance (spec Ch 6.6).
 
-Phase 3 feature. PCI per ASHRAE 90.1-2016 Appendix G Section 4.2.1.1; point
-thresholds per LEED v4.1 BD+C EAc. The Appendix G baseline IDF generation is
-itself deferred to Phase 3 (engine/appendix_g.py is a stub), so these helpers
-are exercised by unit tests but not yet wired into the default calc pipeline.
+PCI per ASHRAE 90.1-2016 Appendix G Section 4.2.1.1; point thresholds per LEED
+v4.1 BD+C EAc. The Appendix G baseline cost (denominator) comes from the
+EnergyPlus baseline run (engine/appendix_g.py); these helpers compute the index
+and points from proposed vs. baseline cost and are unit-tested independently.
 """
 from __future__ import annotations
+
+import csv
+from functools import lru_cache
+
+from .config import DATA_DIR
+
+_DEFAULT_PCIT = 0.65
+
+
+@lru_cache(maxsize=1)
+def _pci_targets() -> dict[tuple[str, str], float]:
+    out: dict[tuple[str, str], float] = {}
+    path = DATA_DIR / "pci_targets.csv"
+    if not path.exists():
+        return out
+    with path.open() as fh:
+        for row in csv.DictReader(line for line in fh if not line.startswith("#")):
+            try:
+                out[(row["building_type"], row["climate_zone"])] = float(row["pcit"])
+            except (KeyError, ValueError):
+                continue
+    return out
 
 
 def performance_cost_index(proposed_total_cost: float, baseline_total_cost: float) -> float:
@@ -16,12 +38,17 @@ def performance_cost_index(proposed_total_cost: float, baseline_total_cost: floa
 
 
 def pci_target(building_type: str, climate_zone: str, standard: str = "90.1-2016") -> float:
-    """PCIt per Standard 90.1-2016 Appendix G Table 4.2.1.1.
+    """PCIt per Standard 90.1-2016 Appendix G Table 4.2.1.1, from
+    data/pci_targets.csv. Falls back to a representative office target.
 
-    Phase 1 placeholder: the full per-(building-type x climate-zone) table ships
-    in Phase 3 (data/pci_targets.csv). 0.65 is a representative office target.
-    """
-    return 0.65
+    NOTE: the bundled CSV holds representative placeholders — verify against the
+    official LEED v4.1 table before relying on a point count for a submission."""
+    targets = _pci_targets()
+    return (
+        targets.get((building_type, climate_zone))
+        or targets.get((building_type, "*"))
+        or _DEFAULT_PCIT
+    )
 
 
 def leed_points_v41(pci: float, target: float, delta_ghg_pct: float) -> tuple[int, int]:

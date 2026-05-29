@@ -6,6 +6,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from energy_modeler import datastore
+from energy_modeler.config import settings
 
 from .. import pipeline
 from ..db import get_session
@@ -18,6 +19,20 @@ RUNTIME_HINT_SEC = {
     "SmallOffice": 45, "MediumOffice": 120, "LargeOffice": 600,
     "PrimarySchool": 180, "SecondarySchool": 360,
 }
+
+
+def _dispatch(job_id: str, background: BackgroundTasks) -> None:
+    """Enqueue to the Celery EnergyPlus worker when REDIS_URL is set (the worker
+    stack); otherwise run inline via BackgroundTasks (the single-process beta)."""
+    if settings.redis_url:
+        try:
+            from workers.eplus_worker import run_project_analysis
+
+            run_project_analysis.delay(job_id)
+            return
+        except Exception:  # noqa: BLE001 - celery/redis unavailable -> run inline
+            pass
+    background.add_task(pipeline.run_job, job_id)
 
 
 @router.post("/api/calc/run", status_code=202)
@@ -63,7 +78,7 @@ def run_calc(
     project.status = "in_analysis"
     session.commit()
 
-    background.add_task(pipeline.run_job, job.id)
+    _dispatch(job.id, background)
 
     return {
         "job_id": job.id,

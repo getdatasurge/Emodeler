@@ -31,6 +31,10 @@ SF_TO_M2 = 0.092903
 # low sun, internal gains, and much commercial heating is gas not electric).
 COOLING_PICKUP = 0.95
 HEATING_PICKUP = 0.30
+# Rated COP overstates real performance: seasonal/part-load operation (the basis
+# of SEER/IEER) runs lower. Derate the rated COP when converting cooling load to
+# electricity so the estimate isn't optimistic about system efficiency.
+SEASONAL_COP_DERATE = 0.85
 # Share of the prototype's average cooling that is NOT window-solar driven
 # (internal loads, ventilation, envelope conduction). The window-solar portion
 # is recomputed from the project's actual glazing for self-consistency.
@@ -58,9 +62,31 @@ ESTIMATE_WARNING = (
 
 COOLING_HOURS_TO_PEAK_KW = 1800.0  # equivalent full-load cooling hours/yr
 
+# Daylight-harvesting penalty: cutting visible transmittance makes daylight-
+# controlled zones run electric lighting more (delta_lighting was always 0).
+# Fraction of a building type's lighting energy in daylit (perimeter) zones:
+DAYLIT_FRACTION = {
+    "SmallOffice": 0.30, "MediumOffice": 0.30, "LargeOffice": 0.35,
+    "PrimarySchool": 0.30, "SecondarySchool": 0.30,
+    "StandaloneRetail": 0.20, "StripMall": 0.15, "Warehouse": 0.10,
+}
+DAYLIGHT_CONTROL_EFFECTIVENESS = 0.5  # continuous dimming captures ~half the theoretical
+
 
 def _cooling_weights(climate_zone: str) -> list[float]:
     return COOLING_WEIGHTS.get(climate_zone[:1], COOLING_WEIGHTS["4"])
+
+
+def _avg_vt(project: EngineProject, props_provider) -> float:
+    """Area-weighted visible transmittance across the project's glazed faces."""
+    total_area = vt_area = 0.0
+    for face in project.faces:
+        base = datastore.get_base_glazing(face.base_glazing_id)
+        if base is None:
+            continue
+        total_area += face.area_sqft
+        vt_area += props_provider(base).vt * face.area_sqft
+    return vt_area / total_area if total_area else 0.0
 
 
 def _baseline_end_uses(meta: dict, area_sf: float) -> EnergyEndUses:
@@ -151,7 +177,7 @@ def _window_solar_loads(project: EngineProject, shgc_provider) -> tuple[float, f
 
 
 def _cooling_elec(window_cooling_thermal: float, cooling_cop: float) -> float:
-    return window_cooling_thermal * COOLING_PICKUP / cooling_cop
+    return window_cooling_thermal * COOLING_PICKUP / (cooling_cop * SEASONAL_COP_DERATE)
 
 
 def _monthly_window_cooling(
@@ -170,7 +196,7 @@ def _monthly_window_cooling(
         months = poa.get(face.orientation, [0.0] * 12)
         for m in range(12):
             thermal = months[m] * area_m2 * shgc * weights[m]
-            monthly[m] += thermal * COOLING_PICKUP / cooling_cop
+            monthly[m] += thermal * COOLING_PICKUP / (cooling_cop * SEASONAL_COP_DERATE)
     return monthly
 
 
@@ -245,6 +271,9 @@ def run_project(project: EngineProject) -> tuple[RunResult, list[RunResult]]:
         monthly=base_monthly,
     )
 
+    baseline_vt = _avg_vt(project, lambda b: glazing.base_properties(b))
+    daylit_fraction = DAYLIT_FRACTION.get(project.building_type, 0.25)
+
     film_runs: list[RunResult] = []
     for scenario in project.scenarios:
         film = resolve_film(scenario.film_sku)
@@ -258,19 +287,29 @@ def run_project(project: EngineProject) -> tuple[RunResult, list[RunResult]]:
         # Lost beneficial winter solar gain becomes a heating penalty.
         heating_penalty = max(0.0, base_heat_thermal - film_heat_thermal) * HEATING_PICKUP / bldg.heating_cop
 
+        # Daylighting penalty: cutting visible transmittance makes daylit zones
+        # run electric lighting more (partially offsets cooling savings).
+        film_vt = _avg_vt(project, lambda b, _f=film: glazing.applied_properties(b, _f))
+        vt_drop = max(0.0, (baseline_vt - film_vt) / baseline_vt) if baseline_vt else 0.0
+        lighting_penalty = (
+            proto.interior_lighting_kwh * daylit_fraction * vt_drop * DAYLIGHT_CONTROL_EFFECTIVENESS
+        )
+
         film_cooling = nonwindow_cooling + film_window_cooling
         film_heating = proto.heating_elec_kwh + heating_penalty
+        film_lighting = proto.interior_lighting_kwh + lighting_penalty
         film_uses = EnergyEndUses(
             heating_elec_kwh=round(film_heating, 1),
             cooling_elec_kwh=round(film_cooling, 1),
-            interior_lighting_kwh=proto.interior_lighting_kwh,
+            interior_lighting_kwh=round(film_lighting, 1),
             interior_equipment_kwh=proto.interior_equipment_kwh,
             fans_kwh=proto.fans_kwh,
             total_electricity_kwh=round(
                 proto.total_electricity_kwh
                 - proto.cooling_elec_kwh
                 + film_cooling
-                + heating_penalty,
+                + heating_penalty
+                + lighting_penalty,
                 1,
             ),
             total_gas_kwh=0.0,

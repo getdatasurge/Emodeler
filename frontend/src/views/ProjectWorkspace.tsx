@@ -7,7 +7,7 @@ import type {
   Job,
   Project,
 } from '../types';
-import { Button, Card, ErrorBox, SectionTitle, Spinner } from '../components/ui';
+import { Button, Card, ErrorBox, Label, SectionTitle, Spinner, TextInput } from '../components/ui';
 import { GlazingFaces } from '../components/GlazingFaces';
 import { FilmCandidates } from '../components/FilmCandidates';
 import type { CandidateDraft } from '../components/FilmCandidates';
@@ -39,6 +39,7 @@ export function ProjectWorkspace({
   const [run, setRun] = useState<RunState>({ phase: 'idle' });
   const [runError, setRunError] = useState<string | null>(null);
   const [result, setResult] = useState<{ comparison: Comparison; jobId: string } | null>(null);
+  const [demandCharge, setDemandCharge] = useState('');
   const pollRef = useRef<number | null>(null);
 
   // Initial load of project + catalogs.
@@ -146,6 +147,8 @@ export function ProjectWorkspace({
           film_life_yrs: 15,
           discount_rate: 0.05,
           utility_escalation: 0.025,
+          include_demand_charge: Number(demandCharge) > 0,
+          demand_charge_usd_per_kw: Number(demandCharge) || 0,
         },
       });
       startPolling(resp.job_id);
@@ -230,6 +233,16 @@ export function ProjectWorkspace({
               <ErrorBox message={`Analysis failed: ${run.message}`} />
             </div>
           )}
+          <div className="mb-4 max-w-xs">
+            <Label>Utility demand charge ($/kW·mo, optional)</Label>
+            <TextInput
+              type="number"
+              step="0.01"
+              value={demandCharge}
+              onChange={(e) => setDemandCharge(e.target.value)}
+              placeholder="e.g. 15.00 — adds demand savings to the result"
+            />
+          </div>
           <div className="flex items-center gap-4">
             <Button onClick={handleRun} disabled={isRunning}>
               {isRunning ? 'Running…' : 'Run Analysis'}

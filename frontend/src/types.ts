@@ -174,6 +174,8 @@ export interface CalcOptions {
   film_life_yrs: number;
   discount_rate: number;
   utility_escalation: number;
+  include_demand_charge?: boolean;
+  demand_charge_usd_per_kw?: number;
 }
 
 export interface CalcRunRequest {

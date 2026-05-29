@@ -56,3 +56,58 @@ def applied_properties(base_glazing: dict, film: FilmSpec) -> GlazingProperties:
         u_factor = round(u_factor * 0.85, 3)
 
     return GlazingProperties(shgc=applied_shgc, u_factor_btuhrft2F=u_factor, vt=applied_vt)
+
+
+# Generic clear float glass optical record (3 mm) for the un-filmed outer pane
+# and inner panes. Matches the IGSDB clear-glass reference.
+_CLEAR_GLASS = {
+    "thickness_m": 0.003,
+    "tf_solar": 0.837, "rf_solar": 0.075, "rb_solar": 0.075,
+    "tf_visible": 0.898, "rf_visible": 0.081, "rb_visible": 0.081,
+    "emissivity_front": 0.84, "emissivity_back": 0.84, "conductivity": 1.0,
+}
+
+
+def _add_glazing_material(idf, name: str, optical: dict) -> None:
+    idf.newidfobject(
+        "WINDOWMATERIAL:GLAZING",
+        Name=name,
+        Optical_Data_Type="SpectralAverage",
+        Thickness=optical.get("thickness_m", 0.003),
+        Solar_Transmittance_at_Normal_Incidence=optical.get("tf_solar", 0.837),
+        Front_Side_Solar_Reflectance_at_Normal_Incidence=optical.get("rf_solar", 0.075),
+        Back_Side_Solar_Reflectance_at_Normal_Incidence=optical.get("rb_solar", 0.075),
+        Visible_Transmittance_at_Normal_Incidence=optical.get("tf_visible", 0.898),
+        Front_Side_Visible_Reflectance_at_Normal_Incidence=optical.get("rf_visible", 0.081),
+        Back_Side_Visible_Reflectance_at_Normal_Incidence=optical.get("rb_visible", 0.081),
+        Infrared_Transmittance_at_Normal_Incidence=0.0,
+        Front_Side_Infrared_Hemispherical_Emissivity=optical.get("emissivity_front", 0.84),
+        Back_Side_Infrared_Hemispherical_Emissivity=optical.get("emissivity_back", 0.84),
+        Conductivity=optical.get("conductivity", 1.0),
+    )
+
+
+def build_film_construction(
+    idf, name: str, base_glazing: dict, film: "FilmSpec | None"
+) -> str:
+    """Add the WindowMaterial:Glazing layers + a Construction to an eppy `idf`
+    for this (base glazing, film) pairing; return the construction name.
+
+    The film is applied by substituting the OUTER pane's glazing record with the
+    (glass+film) optical record (spec Ch 5.4) at SpectralAverage, so EnergyPlus
+    solves angular optics per timestep — capturing why an angle-stable film like
+    3M Prestige outperforms dyed films on sloped / high-incidence glazing, which
+    a single-SHGC method cannot represent."""
+    layer_count = int(base_glazing.get("layer_count", 1))
+    outer = f"{name}_outer"
+    _add_glazing_material(idf, outer, film.optical if film else _CLEAR_GLASS)
+    layers = [outer]
+    if layer_count >= 2:
+        idf.newidfobject("WINDOWMATERIAL:GAS", Name=f"{name}_gap", Gas_Type="Air", Thickness=0.013)
+        _add_glazing_material(idf, f"{name}_inner", _CLEAR_GLASS)
+        layers += [f"{name}_gap", f"{name}_inner"]
+    con = idf.newidfobject("CONSTRUCTION", Name=name)
+    con.Outside_Layer = layers[0]
+    for i, layer in enumerate(layers[1:], start=2):
+        setattr(con, f"Layer_{i}", layer)
+    return name

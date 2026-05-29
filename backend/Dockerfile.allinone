@@ -1,0 +1,32 @@
+# All-in-one image (spec Ch 9.5) for a single-service bid-grade deploy: the
+# EnergyPlus binary + the FastAPI app in one container, running calc jobs inline
+# (no separate worker/Redis needed). Point a Render web service at this Dockerfile
+# and attach a persistent disk at /data. For high throughput, split into the
+# api + worker + redis stack (docker-compose --profile full) instead.
+FROM nrel/energyplus:24.2.0
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 python3-venv python3-pip \
+    libxml2 libxslt1.1 \
+    libpango-1.0-0 libpangoft2-1.0-0 \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+COPY requirements-worker.txt requirements.txt ./
+RUN pip3 install --no-cache-dir --break-system-packages -r requirements-worker.txt
+
+COPY . /app/
+
+# Prototypes + weather + SQLite + audit bundles live on the persistent /data disk
+# so they survive redeploys. ENERGYPLUS_DIR holds both `energyplus` and Energy+.idd.
+ENV ENERGYPLUS_DIR=/usr/local/EnergyPlus-24-2-0 \
+    PROTOTYPES_DIR=/data/prototypes \
+    EGRID_DATA_DIR=/app/energy_modeler/data \
+    STORAGE_DIR=/data/storage \
+    DATABASE_URL=sqlite:////data/energy_modeler.db
+
+EXPOSE 8000
+# Bind the platform $PORT (Render injects it); inline jobs use the real engine
+# because the EnergyPlus binary is present.
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]

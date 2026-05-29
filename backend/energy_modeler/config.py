@@ -47,6 +47,10 @@ class Settings:
     prototypes_dir: str | None = _env("PROTOTYPES_DIR")
     egrid_data_dir: str | None = _env("EGRID_DATA_DIR")
 
+    # When set (the EnergyPlus worker stack), the API enqueues calc jobs to the
+    # Celery worker instead of running them inline via BackgroundTasks.
+    redis_url: str | None = _env("REDIS_URL")
+
     # Where run working dirs + the audit bundle are written.
     storage_dir: Path = Path(_env("STORAGE_DIR", "./storage") or "./storage")
 
