@@ -40,9 +40,11 @@ def _idd_path() -> str | None:
                 break
             if (d / "Energy+.idd").exists():
                 return str(d / "Energy+.idd")
-    # 3. Glob common install roots (bounded patterns).
+    # 3. Glob common install roots (bounded patterns). nrel/energyplus installs to
+    #    a hash-suffixed dir at the FS root, e.g. /EnergyPlus-22.1.0-<hash>-Linux-...
     for pattern in ("/usr/local/EnergyPlus*/Energy+.idd", "/usr/local/bin/Energy+.idd",
-                    "/opt/EnergyPlus*/Energy+.idd", "/energyplus/Energy+.idd"):
+                    "/opt/EnergyPlus*/Energy+.idd", "/energyplus/Energy+.idd",
+                    "/EnergyPlus*/Energy+.idd"):
         hits = glob.glob(pattern)
         if hits:
             return hits[0]
