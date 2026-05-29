@@ -9,6 +9,8 @@ aggregate metadata plus a floor-area scale factor, which is what the analytical
 fallback engine consumes."""
 from __future__ import annotations
 
+import glob
+import shutil
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -23,10 +25,27 @@ class PrototypeNotFound(Exception):
 
 
 def _idd_path() -> str | None:
+    # 1. Explicit ENERGYPLUS_DIR.
     if settings.energyplus_dir:
         cand = Path(settings.energyplus_dir) / "Energy+.idd"
         if cand.exists():
             return str(cand)
+    # 2. Alongside the energyplus binary (the install dir is on PATH but isn't
+    #    necessarily ENERGYPLUS_DIR; nrel images vary the exact path).
+    exe = shutil.which("energyplus")
+    if exe:
+        real = Path(exe).resolve()
+        for d in [real.parent, *real.parents]:
+            if str(d) in ("/", "/usr"):
+                break
+            if (d / "Energy+.idd").exists():
+                return str(d / "Energy+.idd")
+    # 3. Glob common install roots (bounded patterns).
+    for pattern in ("/usr/local/EnergyPlus*/Energy+.idd", "/usr/local/bin/Energy+.idd",
+                    "/opt/EnergyPlus*/Energy+.idd", "/energyplus/Energy+.idd"):
+        hits = glob.glob(pattern)
+        if hits:
+            return hits[0]
     return None
 
 
