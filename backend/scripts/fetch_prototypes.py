@@ -20,6 +20,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import sys
 import urllib.request
 import zipfile
@@ -38,8 +39,11 @@ BUILDING_TYPES = [
 ]
 
 ROOT = Path(__file__).resolve().parents[1]
-DEST = ROOT / "energy_modeler" / "data" / "prototypes" / STANDARD
-MANIFEST = ROOT / "energy_modeler" / "data" / "prototypes" / f"{STANDARD}.manifest.json"
+# Honor PROTOTYPES_DIR (the persistent disk in a deploy) so fetched IDFs land
+# where prototype_loader looks and survive redeploys; else fall back in-repo.
+_PROTO_ROOT = Path(os.getenv("PROTOTYPES_DIR") or (ROOT / "energy_modeler" / "data" / "prototypes"))
+DEST = _PROTO_ROOT / STANDARD
+MANIFEST = _PROTO_ROOT / f"{STANDARD}.manifest.json"
 
 
 def _sha256(data: bytes) -> str:
