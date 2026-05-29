@@ -1,0 +1,17 @@
+# LEED v4.1 BD+C EAc "Optimize Energy Performance" baseline PCI targets (PCIt),
+# per ASHRAE 90.1-2016 Appendix G Table 4.2.1.1.
+#
+# climate_zone "*" = applies to all zones for that building type.
+#
+# !!! REPRESENTATIVE PLACEHOLDER VALUES — VERIFY against the official LEED v4.1
+# BD+C EAc table before using in a LEED submission. The lookup mechanism is the
+# deliverable; replace these with the published PCIt for the project's type/zone.
+building_type,climate_zone,pcit
+SmallOffice,*,0.62
+MediumOffice,*,0.60
+LargeOffice,*,0.58
+PrimarySchool,*,0.62
+SecondarySchool,*,0.61
+StandaloneRetail,*,0.66
+StripMall,*,0.66
+Warehouse,*,0.70
