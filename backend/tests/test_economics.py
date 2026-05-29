@@ -32,3 +32,13 @@ def test_irr_nan_when_no_savings():
 def test_percent_preserves_nan():
     assert economics.percent(0.114) == 11.4
     assert math.isnan(economics.percent(float("nan")))
+
+
+def test_demand_savings():
+    # 20 kW peak cut x 0.8 coincidence x $15/kW x 12 months.
+    assert economics.annual_demand_savings(20.0, 15.0) == 20.0 * 0.8 * 15.0 * 12
+
+
+def test_demand_savings_zero_without_rate_or_reduction():
+    assert economics.annual_demand_savings(20.0, 0.0) == 0.0
+    assert economics.annual_demand_savings(0.0, 15.0) == 0.0

@@ -12,6 +12,22 @@ import math
 DEFAULT_LIFE_YRS = 15
 DEFAULT_DISCOUNT = 0.05
 DEFAULT_ESCALATION = 0.025
+# Building peak reduction rarely coincides perfectly with the utility's monthly
+# billing peak; derate the demand-charge credit accordingly.
+DEFAULT_DEMAND_COINCIDENCE = 0.8
+
+
+def annual_demand_savings(
+    delta_peak_kw: float,
+    demand_charge_usd_per_kw: float,
+    coincidence: float = DEFAULT_DEMAND_COINCIDENCE,
+    months: int = 12,
+) -> float:
+    """Annual utility demand-charge savings from a peak-kW reduction (spec Ch 5,
+    demand-charge modeling). Zero when there's no reduction or no demand rate."""
+    if delta_peak_kw <= 0 or demand_charge_usd_per_kw <= 0:
+        return 0.0
+    return delta_peak_kw * coincidence * demand_charge_usd_per_kw * months
 
 
 def simple_payback(project_cost: float, annual_savings: float) -> float:

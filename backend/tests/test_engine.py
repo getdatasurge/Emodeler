@@ -9,7 +9,12 @@ import math
 import pytest
 
 from energy_modeler.engine import runner
-from energy_modeler.engine.inputs import EngineFace, EngineProject, EngineScenario
+from energy_modeler.engine.inputs import (
+    EngineFace,
+    EngineOptions,
+    EngineProject,
+    EngineScenario,
+)
 from energy_modeler.parser import results
 
 
@@ -136,6 +141,20 @@ def test_daylighting_penalty_present():
     # Cutting visible transmittance makes daylit zones run electric lighting
     # more -> a lighting penalty (delta = baseline - film < 0).
     assert comp.films[0].delta_lighting_kwh < 0
+
+
+def test_demand_charge_increases_savings():
+    kw = dict(
+        project_id="dc", building_type="MediumOffice", climate_zone="2A",
+        gross_floor_area_sf=14500, zip="33540", utility_rate_usd_kwh=0.1145,
+        faces=[EngineFace("S", 873, "dbl_clear_3mm_13mmAir")],
+        scenarios=[EngineScenario("Good", "3M-PR40X", 20000)],
+    )
+    energy_only = _run(_project(**kw))[2].films[0].delta_cost_usd_per_year
+    with_demand = _run(
+        _project(options=EngineOptions(include_demand_charge=True, demand_charge_usd_per_kw=15.0), **kw)
+    )[2].films[0].delta_cost_usd_per_year
+    assert with_demand > energy_only
 
 
 def test_unknown_film_raises():

@@ -67,6 +67,7 @@ class CalcOptions(BaseModel):
     utility_escalation: float = 0.025
     include_appendix_g_baseline: bool = False
     include_demand_charge: bool = False
+    demand_charge_usd_per_kw: float = 0.0
 
 
 class CalcRunRequest(BaseModel):

@@ -108,7 +108,12 @@ def build_comparison(
         delta_peak = round(
             baseline.peak_demand.cooling_peak_kw - run.peak_demand.cooling_peak_kw, 3
         )
-        delta_cost = round(delta_total * rate, 2)
+        demand_savings = (
+            economics.annual_demand_savings(delta_peak, opts.demand_charge_usd_per_kw)
+            if opts.include_demand_charge
+            else 0.0
+        )
+        delta_cost = round(delta_total * rate + demand_savings, 2)
         delta_co2 = round(carbon.lb_co2_avoided(delta_total, project.zip), 1)
         delta_co2e = round(carbon.co2e_kg_avoided(delta_total, project.zip), 1)
 

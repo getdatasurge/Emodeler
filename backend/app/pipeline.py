@@ -119,6 +119,8 @@ def run_job(job_id: str) -> None:
             discount_rate=raw_opts.get("discount_rate", 0.05),
             utility_escalation=raw_opts.get("utility_escalation", 0.025),
             include_appendix_g_baseline=raw_opts.get("include_appendix_g_baseline", False),
+            include_demand_charge=raw_opts.get("include_demand_charge", False),
+            demand_charge_usd_per_kw=raw_opts.get("demand_charge_usd_per_kw", 0.0),
         )
         engine_project = to_engine_project(project, opts)
 
