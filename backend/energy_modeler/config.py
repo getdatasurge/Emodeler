@@ -1,6 +1,7 @@
 """Runtime configuration. Secrets come from the environment (never the repo)."""
 from __future__ import annotations
 
+import glob
 import os
 import shutil
 from pathlib import Path
@@ -63,10 +64,17 @@ class Settings:
             cand = Path(self.energyplus_dir) / "energyplus"
             if cand.exists():
                 return str(cand)
-        for name in ("energyplus", "energyplus-24.2.0", "EnergyPlus"):
+        for name in ("energyplus", "energyplus-22.1.0", "EnergyPlus"):
             found = shutil.which(name)
             if found:
                 return found
+        # nrel/energyplus images install to a hash-suffixed dir at the FS root
+        # (e.g. /EnergyPlus-22.1.0-<hash>-Linux-...); catch it when not on PATH.
+        for pattern in ("/EnergyPlus*/energyplus", "/usr/local/EnergyPlus*/energyplus",
+                        "/opt/EnergyPlus*/energyplus"):
+            hits = glob.glob(pattern)
+            if hits:
+                return hits[0]
         return None
 
 

@@ -50,7 +50,7 @@ export function DataSources() {
       <SourceRow label="Carbon factors" detail="EPA eGRID 2023 (reference set)" live={false} />
       <SourceRow
         label="Engine"
-        detail={meta.engine_mode === 'energyplus' ? 'EnergyPlus 24.x' : 'Analytical estimate'}
+        detail={meta.engine_mode === 'energyplus' ? 'EnergyPlus 22.1' : 'Analytical estimate'}
         live={meta.energyplus_available}
       />
       {!meta.nrel_live && (

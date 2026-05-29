@@ -66,7 +66,7 @@ def _methodology_statement(comparison) -> str:
         f"Carbon factors   : EPA eGRID 2023 subregion total output rates\n"
         f"Standards         : ASHRAE 90.1 prototypes; ISO 15099 convection; NFRC 100/200\n\n"
         f"The customer-facing savings reproduce from the bundled scenario IDFs run\n"
-        f"against the referenced TMY3 weather file. See the EnergyPlus 24.x\n"
+        f"against the referenced TMY3 weather file. See the EnergyPlus 22.1\n"
         f"Engineering Reference, Window Calculation Module, for the heat balance.\n"
     )
 

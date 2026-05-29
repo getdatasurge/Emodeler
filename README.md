@@ -16,7 +16,7 @@ comparison, branded reports, and an auditable run bundle.
 ## Methodology & the engine caveat (read this first)
 
 The production calculation engine is **EnergyPlus** — the platform builds real
-IDF files, submits them to the EnergyPlus 24.x binary, and parses the output.
+IDF files, submits them to the EnergyPlus 22.1 binary, and parses the output.
 Per the spec (and 3M's own guidance), a single-SHGC analytical shortcut is
 **never** an acceptable methodology for a customer-facing bid.
 

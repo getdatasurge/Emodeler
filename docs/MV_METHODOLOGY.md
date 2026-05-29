@@ -32,7 +32,7 @@ Re-running the proposed IDF reproduces the reported end-uses to machine epsilon.
 
 ## PE-stamp review checklist (spec §8.4)
 Before the methodology backs a guarantee, a licensed mechanical engineer confirms:
-- [ ] Engine = unmodified EnergyPlus 24.2 (inherits DOE's ASHRAE 140 validation).
+- [ ] Engine = unmodified EnergyPlus 22.1 (inherits DOE's ASHRAE 140 validation).
 - [ ] Prototype source + standard edition (PNNL 90.1-2019) appropriate to the building.
 - [ ] As-built overrides (HVAC COP, envelope) sourced (nameplate / audit), not guessed.
 - [ ] Glazing optics from IGSDB (NFRC 200), spectral or summary tier documented.
