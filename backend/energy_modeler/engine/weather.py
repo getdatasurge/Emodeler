@@ -19,18 +19,21 @@ PVWATTS_URL = "https://developer.nrel.gov/api/pvwatts/v8.json"
 
 
 def epw_for_zip(zip_code: str) -> str:
-    """Path to the TMY3 .epw for the ZIP's nearest NSRDB station, used by the
-    real EnergyPlus run. Looks in <storage_dir>/weather; raises FileNotFoundError
-    when none is cached/bundled (a provisioned worker downloads it from NSRDB)."""
+    """Path to the TMY3 .epw for the ZIP's climate zone (its representative city),
+    used by the real EnergyPlus run. Looks in <storage_dir>/weather; raises
+    FileNotFoundError until scripts/fetch_weather.py has populated it."""
+    from .building import city_for_zone
+
     cache = Path(settings.storage_dir) / "weather"
     z = datastore.get_zip(zip_code)
-    if z:
-        for name in (f"{z['station_id']}.epw", f"{zip_code}.epw"):
-            cand = cache / name
-            if cand.exists():
-                return str(cand)
+    cz = z.get("climate_zone") if z else None
+    city = city_for_zone(cz) if cz else None
+    if city:
+        matches = sorted(cache.glob(f"*{city}*.epw"))
+        if matches:
+            return str(matches[0])
     raise FileNotFoundError(
-        f"No TMY3 .epw cached for ZIP {zip_code}; configure the NSRDB weather download"
+        f"No TMY3 .epw for ZIP {zip_code} (zone {cz}); run scripts/fetch_weather.py"
     )
 
 # Window face -> (tilt, azimuth) in PVWatts/EnergyPlus convention

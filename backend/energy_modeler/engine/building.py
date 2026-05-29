@@ -39,6 +39,23 @@ DEFAULT_FLOOR_TO_FLOOR_FT = 13.0
 DEFAULT_WALL_ABSORPTANCE = 0.60  # medium-tone masonry/EIFS
 DEFAULT_ROOF_ABSORPTANCE = 0.70  # aged dark membrane (cool roof ~0.30)
 
+# ASHRAE 90.1-2019 representative city per climate zone — the DOE prototype IDFs
+# and the TMY3 .epw files are named by these cities, so we resolve a project's
+# climate zone to its representative city to find both.
+CLIMATE_ZONE_CITY = {
+    "0A": "HoChiMinh", "0B": "Dubai", "1A": "Miami", "1B": "NewDelhi",
+    "2A": "Tampa", "2B": "Tucson", "3A": "Atlanta", "3B": "ElPaso", "3C": "SanDiego",
+    "4A": "NewYork", "4B": "Albuquerque", "4C": "Seattle", "5A": "Buffalo",
+    "5B": "Denver", "5C": "PortAngeles", "6A": "Rochester", "6B": "GreatFalls",
+    "7": "InternationalFalls", "8": "Fairbanks",
+}
+
+
+def city_for_zone(climate_zone: str) -> str | None:
+    return CLIMATE_ZONE_CITY.get(climate_zone) or CLIMATE_ZONE_CITY.get(
+        next((z for z in CLIMATE_ZONE_CITY if z.startswith(climate_zone[:1])), "")
+    )
+
 # Representative cooling-design peak transmitted irradiance by orientation (W/m2).
 # West peaks highest (afternoon coincident with the cooling peak); north lowest.
 PEAK_POA_W_M2 = {"S": 480.0, "E": 620.0, "W": 700.0, "N": 180.0, "H": 880.0}
