@@ -4,32 +4,42 @@
 # and attach a persistent disk at /data. For high throughput, split into the
 # api + worker + redis stack (docker-compose --profile full) instead.
 #
-# Pinned to 22.1.0 because the bundled DOE prototype IDFs (energycodes.gov
-# STD2019) are written at EnergyPlus 22.1; a newer binary parses their shifted
-# object fields positionally and rejects the input. Bump this only alongside the
-# prototypes (or after running them through IDFVersionUpdater).
-FROM nrel/energyplus:22.1.0
+# EnergyPlus is pinned to 22.1.0 to match the bundled DOE prototype IDFs
+# (energycodes.gov STD2019); a newer binary parses their shifted object fields
+# positionally and rejects the input. The official nrel:22.1.0 image is Ubuntu
+# 18.04 / Python 3.6 — too old to run the app — so we copy just the EnergyPlus
+# install into an Ubuntu 22.04 / Python 3.10 stage (the binary is built against
+# glibc 2.27 and runs fine on 22.04's newer glibc). Bump both together.
+FROM nrel/energyplus:22.1.0 AS eplus
+
+FROM ubuntu:22.04
+
+# EnergyPlus 22.1.0 install dir (energyplus binary + Energy+.idd + datasets),
+# self-contained; found via PATH and the /usr/local/EnergyPlus* auto-detect glob.
+COPY --from=eplus /EnergyPlus-22.1.0-ed759b17ee-Linux-Ubuntu18.04-x86_64 \
+                  /usr/local/EnergyPlus-22.1.0-ed759b17ee-Linux-Ubuntu18.04-x86_64
+ENV PATH=/usr/local/EnergyPlus-22.1.0-ed759b17ee-Linux-Ubuntu18.04-x86_64:$PATH
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 python3-venv python3-pip \
     libxml2 libxslt1.1 \
     libpango-1.0-0 libpangoft2-1.0-0 \
+    libgomp1 libstdc++6 \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
 COPY requirements-worker.txt requirements.txt ./
-# Upgrade pip first: the base image ships pip 22.0.2, which predates
-# --break-system-packages (added in pip 23.0) and has a weaker resolver.
+# Upgrade pip first: jammy ships pip 22.0.2, which predates --break-system-packages
+# (added in pip 23.0).
 RUN pip3 install --no-cache-dir --upgrade pip \
     && pip3 install --no-cache-dir --break-system-packages -r requirements-worker.txt
 
 COPY . /app/
 
 # Prototypes + weather + SQLite + audit bundles live on the persistent /data disk
-# so they survive redeploys. The `energyplus` binary + Energy+.idd are auto-detected
-# from PATH (the nrel image installs them under a hash-suffixed dir), so we don't
-# pin ENERGYPLUS_DIR.
+# so they survive redeploys. The energyplus binary + Energy+.idd are on PATH (and
+# also auto-detected under /usr/local/EnergyPlus*).
 ENV PROTOTYPES_DIR=/data/prototypes \
     EGRID_DATA_DIR=/app/energy_modeler/data \
     STORAGE_DIR=/data/storage \

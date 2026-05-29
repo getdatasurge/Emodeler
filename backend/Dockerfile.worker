@@ -1,16 +1,26 @@
-# EnergyPlus worker image (spec Ch 9.5). Built on the official EnergyPlus
-# container so the real IDF pipeline runs; falls back to the labeled estimate
-# only if prototypes are missing.
+# EnergyPlus worker image (spec Ch 9.5). Runs the real IDF pipeline; falls back
+# to the labeled estimate only if prototypes are missing.
 #
-# Pinned to 22.1.0 to match the bundled DOE prototype IDF version (energycodes.gov
-# STD2019); a newer binary rejects their shifted object fields. Bump only alongside
-# the prototypes (or after IDFVersionUpdater).
-FROM nrel/energyplus:22.1.0
+# EnergyPlus is pinned to 22.1.0 to match the bundled DOE prototype IDF version
+# (energycodes.gov STD2019); a newer binary rejects their shifted object fields.
+# The official nrel:22.1.0 image is Ubuntu 18.04 / Python 3.6 (too old for the
+# app), so we copy just the EnergyPlus install into an Ubuntu 22.04 / Python 3.10
+# stage (its glibc 2.27 binary runs fine on 22.04). Bump both together.
+FROM nrel/energyplus:22.1.0 AS eplus
+
+FROM ubuntu:22.04
+
+# EnergyPlus 22.1.0 install dir (energyplus binary + Energy+.idd + datasets),
+# self-contained; found via PATH and the /usr/local/EnergyPlus* auto-detect glob.
+COPY --from=eplus /EnergyPlus-22.1.0-ed759b17ee-Linux-Ubuntu18.04-x86_64 \
+                  /usr/local/EnergyPlus-22.1.0-ed759b17ee-Linux-Ubuntu18.04-x86_64
+ENV PATH=/usr/local/EnergyPlus-22.1.0-ed759b17ee-Linux-Ubuntu18.04-x86_64:$PATH
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 python3-venv python3-pip \
     libxml2 libxslt1.1 \
     libpango-1.0-0 libpangoft2-1.0-0 \
+    libgomp1 libstdc++6 \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -20,14 +30,12 @@ WORKDIR /app
 # COPY prototypes/ /opt/energyplus/prototypes/
 
 COPY requirements-worker.txt requirements.txt ./
-# Upgrade pip first: base image ships pip 22.0.2 (predates --break-system-packages).
+# Upgrade pip first: jammy ships pip 22.0.2 (predates --break-system-packages).
 RUN pip3 install --no-cache-dir --upgrade pip \
     && pip3 install --no-cache-dir --break-system-packages -r requirements-worker.txt
 
 COPY . /app/
 
-# The `energyplus` binary + Energy+.idd are auto-detected from PATH (the nrel
-# image installs them under a hash-suffixed dir), so we don't pin ENERGYPLUS_DIR.
 ENV PROTOTYPES_DIR=/opt/energyplus/prototypes \
     EGRID_DATA_DIR=/app/energy_modeler/data
 
