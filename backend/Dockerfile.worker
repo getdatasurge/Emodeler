@@ -16,7 +16,9 @@ WORKDIR /app
 # COPY prototypes/ /opt/energyplus/prototypes/
 
 COPY requirements-worker.txt requirements.txt ./
-RUN pip3 install --no-cache-dir --break-system-packages -r requirements-worker.txt
+# Upgrade pip first: base image ships pip 22.0.2 (predates --break-system-packages).
+RUN pip3 install --no-cache-dir --upgrade pip \
+    && pip3 install --no-cache-dir --break-system-packages -r requirements-worker.txt
 
 COPY . /app/
 
