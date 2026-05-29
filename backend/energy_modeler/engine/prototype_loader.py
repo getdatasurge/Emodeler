@@ -22,16 +22,6 @@ class PrototypeNotFound(Exception):
     the runner catches this and falls back to the labeled analytical estimate."""
 
 
-# ASHRAE climate-zone fallback: exact subzone, then the digit's other subzones.
-_CZ_FALLBACK = {
-    "1A": ["1A", "1B"], "2A": ["2A", "2B"], "2B": ["2B", "2A"],
-    "3A": ["3A", "3B", "3C"], "3B": ["3B", "3A"], "3C": ["3C", "3B"],
-    "4A": ["4A", "4B", "4C"], "4B": ["4B", "4A"], "4C": ["4C", "4A"],
-    "5A": ["5A", "5B"], "5B": ["5B", "5A"], "6A": ["6A", "6B"], "6B": ["6B", "6A"],
-    "7": ["7", "7A"], "8": ["8", "8A"],
-}
-
-
 def _idd_path() -> str | None:
     if settings.energyplus_dir:
         cand = Path(settings.energyplus_dir) / "Energy+.idd"
@@ -41,12 +31,16 @@ def _idd_path() -> str | None:
 
 
 def _find_prototype_idf(building_type: str, climate_zone: str, standard: str) -> Path | None:
+    from .building import city_for_zone
+
     root = Path(settings.prototypes_dir) if settings.prototypes_dir else DATA_DIR / "prototypes"
     base = root / standard / building_type
     if not base.exists():
         return None
-    for cz in _CZ_FALLBACK.get(climate_zone, [climate_zone, climate_zone[:1]]):
-        for idf in base.glob(f"*{cz}*.idf"):
+    # DOE prototype IDFs are named by representative city (e.g. ..._Tampa.idf).
+    city = city_for_zone(climate_zone)
+    if city:
+        for idf in base.glob(f"*_{city}.idf"):
             return idf
     idfs = sorted(base.glob("*.idf"))
     return idfs[0] if idfs else None
