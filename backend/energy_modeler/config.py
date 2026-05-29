@@ -63,7 +63,7 @@ class Settings:
             cand = Path(self.energyplus_dir) / "energyplus"
             if cand.exists():
                 return str(cand)
-        for name in ("energyplus", "energyplus-24.2.0", "EnergyPlus"):
+        for name in ("energyplus", "energyplus-22.1.0", "EnergyPlus"):
             found = shutil.which(name)
             if found:
                 return found

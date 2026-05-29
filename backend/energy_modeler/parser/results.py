@@ -43,7 +43,7 @@ def parse_run(
     *,
     station: str = "EnergyPlus run",
     weather_dataset: str = "TMY3 (EnergyPlus)",
-    energyplus_version: str = "24.2.0",
+    energyplus_version: str = "22.1.0",
 ) -> RunResult:
     """Build a RunResult from an EnergyPlus run directory's eplustbl.csv summary
     (spec Ch 6.2). Per-window + hourly detail is layered on by eplus_csv."""

@@ -2,7 +2,7 @@
 
 The default deploy (Render/Pages) runs the **analytical estimate** — fine for
 previews, explicitly *not* for bids. ESCO / performance-contract work needs the
-real engine: EnergyPlus 24.2 simulating the DOE prototypes against TMY3 weather.
+real engine: EnergyPlus 22.1 simulating the DOE prototypes against TMY3 weather.
 This is the worker stack.
 
 ```
@@ -56,9 +56,12 @@ FX-01…FX-05 must land in the published ranges (§12.1); run the EFILM cross-ch
 numbers back a guaranteed-savings contract (§8.4).**
 
 ## Notes
-- `ENERGYPLUS_DIR` must hold both `energyplus` and `Energy+.idd`. The Dockerfile
-  sets `/usr/local/EnergyPlus-24-2-0`; verify with
-  `docker compose exec worker ls $ENERGYPLUS_DIR`.
+- The `energyplus` binary and `Energy+.idd` are auto-detected from PATH (the nrel
+  image installs them under a hash-suffixed dir), so the Dockerfiles don't pin
+  `ENERGYPLUS_DIR`. Set it explicitly only for a non-standard install. Verify with
+  `docker compose exec worker energyplus --version`.
+- The binary is pinned to **22.1.0** to match the bundled DOE prototype IDFs;
+  running them on a newer binary fails (shifted object fields). Bump both together.
 - Scale throughput by adding worker replicas (one EnergyPlus run per worker;
   `--concurrency=1`).
 - Persist the shared volume (prototypes, weather, SQLite/Postgres, audit bundles).

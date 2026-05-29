@@ -7,7 +7,7 @@ Runs a bundled DOE prototype IDF two ways and prints the eplusout.err tail:
   [2] after build_scenario_idf()     -> isolates our glazing/HVAC/output mutations
 
 so the verdict says definitively whether the bad IDF is the DOE prototype itself
-(e.g. a version mismatch against the 24.2 binary) or something we inject. The
+(e.g. a version mismatch against the installed binary) or something we inject. The
 runner swallows the cause behind the analytical-estimate fallback; this surfaces
 it directly.
 

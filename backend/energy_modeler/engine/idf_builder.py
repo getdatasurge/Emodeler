@@ -84,7 +84,7 @@ def _scenario_idf_text(project: EngineProject, base_glazing: dict, film: FilmSpe
         f"!-- Building prototype: {project.building_type}  Climate zone: {project.climate_zone} --\n"
         f"!-- NOTE: Section C (glazing) shown. Sections A/B/D/E/F come from the DOE\n"
         f"!--       prototype IDF loaded at run time (spec Ch 4.2/5.3).\n\n"
-        f"Version, 24.2;\n\n"
+        f"Version, 22.1;\n\n"
     )
     construction = construction_idf(f"{label}_Construction", base_glazing, film)
     return header + construction + "\n\n" + standard_outputs_idf()

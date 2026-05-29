@@ -7,7 +7,7 @@ themselves just take an eppy IDF object so they're unit-testable against any IDF
 Version-robust on purpose: object/field names drift across EnergyPlus releases,
 so each helper tries the known aliases and reports how many objects it touched.
 Validated against a synthetic IDF in tests; real DOE-prototype validation runs in
-the worker image against the 24.2 binary (spec Ch 12)."""
+the worker image against the 22.1 binary (spec Ch 12)."""
 from __future__ import annotations
 
 from typing import Any

@@ -3,7 +3,12 @@
 # (no separate worker/Redis needed). Point a Render web service at this Dockerfile
 # and attach a persistent disk at /data. For high throughput, split into the
 # api + worker + redis stack (docker-compose --profile full) instead.
-FROM nrel/energyplus:24.2.0
+#
+# Pinned to 22.1.0 because the bundled DOE prototype IDFs (energycodes.gov
+# STD2019) are written at EnergyPlus 22.1; a newer binary parses their shifted
+# object fields positionally and rejects the input. Bump this only alongside the
+# prototypes (or after running them through IDFVersionUpdater).
+FROM nrel/energyplus:22.1.0
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 python3-venv python3-pip \
@@ -22,9 +27,10 @@ RUN pip3 install --no-cache-dir --upgrade pip \
 COPY . /app/
 
 # Prototypes + weather + SQLite + audit bundles live on the persistent /data disk
-# so they survive redeploys. ENERGYPLUS_DIR holds both `energyplus` and Energy+.idd.
-ENV ENERGYPLUS_DIR=/usr/local/EnergyPlus-24-2-0 \
-    PROTOTYPES_DIR=/data/prototypes \
+# so they survive redeploys. The `energyplus` binary + Energy+.idd are auto-detected
+# from PATH (the nrel image installs them under a hash-suffixed dir), so we don't
+# pin ENERGYPLUS_DIR.
+ENV PROTOTYPES_DIR=/data/prototypes \
     EGRID_DATA_DIR=/app/energy_modeler/data \
     STORAGE_DIR=/data/storage \
     DATABASE_URL=sqlite:////data/energy_modeler.db

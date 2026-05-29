@@ -7,7 +7,7 @@ version and the IGSDB record IDs in the audit bundle, not EFILM.
 
 ## What EFILM is
 A Windows desktop GUI on **EnergyPlus 8.0** (Sept 2014, frozen). Same engine
-*family* as ours (**EnergyPlus 24.2**), nine years older. Same workflow shape:
+*family* as ours (**EnergyPlus 22.1**), about eight years older. Same workflow shape:
 ZIP → TMY3, DOE prototype scaled to floor area, base glass + one 3M film, swap
 the outer-pane `WindowMaterial:Glazing` for the IGSDB film-on-glass record, run,
 parse, branded PDF. One film per run (we do baseline + N in one pass).
@@ -33,7 +33,7 @@ A delta outside the band must be **attributed** to one of the legitimate
 divergences below; an unattributable delta is treated as a bug.
 
 ## Legitimate sources of divergence (expected, documented)
-- **EnergyPlus version (8.0 → 24.2).** ISO 15099 §8.3.2.2 interior convection
+- **EnergyPlus version (8.0 → 22.1).** ISO 15099 §8.3.2.2 interior convection
   (8.0 used a flat 1.46 W/m²·K ASHRAE constant), improved shading/blind models,
   IGU deflection, refined `Daylighting:Controls`, updated coil performance
   curves. Expect 5–10% on annual cooling for identical inputs.
@@ -58,5 +58,5 @@ and by running the **unmodified** binary we inherit that validation. Stated on
 the methodology page of every report.
 
 > Status: protocol defined. Execution requires the EnergyPlus engine (Weeks 7–8)
-> running against the real 24.2 binary + bundled DOE prototypes, plus access to a
+> running against the real 22.1 binary + bundled DOE prototypes, plus access to a
 > dealer EFILM install. Results land in this file once run.

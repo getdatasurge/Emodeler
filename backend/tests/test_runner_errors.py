@@ -19,7 +19,7 @@ def _project():
 
 def test_err_tail_extracts_severe_and_fatal(tmp_path: Path):
     (tmp_path / "eplusout.err").write_text(
-        "Program Version EnergyPlus 24.2\n"
+        "Program Version EnergyPlus 22.1\n"
         "   ** Warning ** something benign\n"
         "   ** Severe  ** Window construction missing layer\n"
         "   **  Fatal  ** Errors found, program terminates\n"

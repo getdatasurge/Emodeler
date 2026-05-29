@@ -1,7 +1,11 @@
 # EnergyPlus worker image (spec Ch 9.5). Built on the official EnergyPlus
 # container so the real IDF pipeline runs; falls back to the labeled estimate
 # only if prototypes are missing.
-FROM nrel/energyplus:24.2.0
+#
+# Pinned to 22.1.0 to match the bundled DOE prototype IDF version (energycodes.gov
+# STD2019); a newer binary rejects their shifted object fields. Bump only alongside
+# the prototypes (or after IDFVersionUpdater).
+FROM nrel/energyplus:22.1.0
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 python3-venv python3-pip \
@@ -22,11 +26,9 @@ RUN pip3 install --no-cache-dir --upgrade pip \
 
 COPY . /app/
 
-# ENERGYPLUS_DIR must hold both the `energyplus` binary and Energy+.idd. The
-# nrel/energyplus:24.2.0 image installs to /usr/local/EnergyPlus-24-2-0 (verify
-# with `docker run --rm nrel/energyplus:24.2.0 ls /usr/local` if it moves).
-ENV ENERGYPLUS_DIR=/usr/local/EnergyPlus-24-2-0 \
-    PROTOTYPES_DIR=/opt/energyplus/prototypes \
+# The `energyplus` binary + Energy+.idd are auto-detected from PATH (the nrel
+# image installs them under a hash-suffixed dir), so we don't pin ENERGYPLUS_DIR.
+ENV PROTOTYPES_DIR=/opt/energyplus/prototypes \
     EGRID_DATA_DIR=/app/energy_modeler/data
 
 CMD ["celery", "-A", "workers.eplus_worker", "worker", "--loglevel=info", "--concurrency=1"]

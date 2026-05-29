@@ -57,7 +57,7 @@ COOLING_WEIGHTS = {
 ESTIMATE_WARNING = (
     "PRELIMINARY ESTIMATE — produced by the analytical fallback engine, not "
     "EnergyPlus. Not valid for bid submission, utility rebate filing, or LEED. "
-    "Install the EnergyPlus 24.x binary (set ENERGYPLUS_DIR) for audited results."
+    "Install the EnergyPlus 22.1 binary (matches the bundled DOE prototypes) for audited results."
 )
 
 COOLING_HOURS_TO_PEAK_KW = 1800.0  # equivalent full-load cooling hours/yr
