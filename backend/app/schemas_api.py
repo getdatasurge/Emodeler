@@ -11,6 +11,9 @@ class FaceIn(BaseModel):
     base_glazing_id: str
     count: int = 1
     notes: str | None = None
+    # Optional surface tilt in degrees (0 = horizontal, 90 = vertical).
+    # Captured per face for sloped-glass / atrium / clerestory geometry.
+    tilt_deg: float | None = Field(default=None, ge=0, le=90)
 
 
 class ScenarioIn(BaseModel):

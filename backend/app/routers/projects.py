@@ -43,7 +43,8 @@ def _serialize(project: Project) -> dict:
         "status": project.status,
         "faces": [
             {"id": f.id, "orientation": f.orientation, "area_sqft": f.area_sqft,
-             "base_glazing_id": f.base_glazing_id, "count": f.count, "notes": f.notes}
+             "base_glazing_id": f.base_glazing_id, "count": f.count,
+             "tilt_deg": f.tilt_deg, "notes": f.notes}
             for f in project.faces
         ],
         "scenarios": [
@@ -88,7 +89,8 @@ def create_project(
         setattr(project, k, getattr(body, k))
     for f in body.faces:
         project.faces.append(Face(orientation=f.orientation, area_sqft=f.area_sqft,
-                                  base_glazing_id=f.base_glazing_id, count=f.count, notes=f.notes))
+                                  base_glazing_id=f.base_glazing_id, count=f.count,
+                                  tilt_deg=f.tilt_deg, notes=f.notes))
     for s in body.scenarios:
         project.scenarios.append(Scenario(label=s.label, film_sku=s.film_sku,
                                           installed_cost_usd=s.installed_cost_usd))
@@ -181,7 +183,8 @@ def add_face(
         raise HTTPException(status_code=404, detail={"error": "Project not found",
                             "code": "NOT_FOUND", "details": {"project_id": project_id}})
     face = Face(project_id=project_id, orientation=body.orientation, area_sqft=body.area_sqft,
-                base_glazing_id=body.base_glazing_id, count=body.count, notes=body.notes)
+                base_glazing_id=body.base_glazing_id, count=body.count,
+                tilt_deg=body.tilt_deg, notes=body.notes)
     session.add(face)
     session.commit()
     return _serialize(project)

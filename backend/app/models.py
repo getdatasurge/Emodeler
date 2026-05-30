@@ -91,6 +91,9 @@ class Face(Base):
     area_sqft: Mapped[float] = mapped_column(Float, nullable=False)
     base_glazing_id: Mapped[str] = mapped_column(String, nullable=False)
     count: Mapped[int] = mapped_column(Integer, default=1)
+    # Optional surface tilt (deg); None -> use the orientation's default (vertical
+    # for cardinals/intercardinals, horizontal for H).
+    tilt_deg: Mapped[float | None] = mapped_column(Float)
     notes: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
 

@@ -26,6 +26,7 @@ export interface Face {
   area_sqft: number;
   base_glazing_id: string;
   count: number;
+  tilt_deg: number | null;
   notes: string | null;
 }
 
@@ -82,6 +83,7 @@ export interface FaceInput {
   area_sqft: number;
   base_glazing_id: string;
   count: number;
+  tilt_deg?: number | null;
   notes?: string | null;
 }
 

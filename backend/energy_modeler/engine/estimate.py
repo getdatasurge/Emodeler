@@ -134,7 +134,11 @@ def _window_results(
         transmitted = annual_poa * area_m2 * shgc
         cond_loss = building.conduction_kwh(props.u_factor_btuhrft2F, face.area_sqft, bldg.hdd65)
         cond_gain = building.conduction_kwh(props.u_factor_btuhrft2F, face.area_sqft, bldg.cdd65)
-        tilt, azimuth = FACE_GEOMETRY.get(face.orientation, (90.0, 180.0))
+        default_tilt, azimuth = FACE_GEOMETRY.get(face.orientation, (90.0, 180.0))
+        # User-supplied per-face tilt wins; otherwise vertical (or horizontal
+        # for H) per the orientation's default. Captured in the audit so a
+        # sloped-glass project isn't misreported as vertical.
+        tilt = float(face.tilt_deg) if face.tilt_deg is not None else default_tilt
         out.append(
             WindowSurfaceResult(
                 surface_name=f"Face_{face.orientation}_{i+1}",

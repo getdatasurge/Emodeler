@@ -38,7 +38,10 @@ def to_engine_project(project: Project, options: EngineOptions) -> EngineProject
         gas_rate_usd_therm=project.gas_rate_usd_therm,
         egrid_subregion=project.egrid_subregion,
         faces=[
-            EngineFace(orientation=f.orientation, area_sqft=f.area_sqft, base_glazing_id=f.base_glazing_id)
+            EngineFace(
+                orientation=f.orientation, area_sqft=f.area_sqft,
+                base_glazing_id=f.base_glazing_id, tilt_deg=f.tilt_deg,
+            )
             for f in project.faces
         ],
         scenarios=[

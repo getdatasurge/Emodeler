@@ -21,6 +21,7 @@ export function GlazingFaces({
     baseGlazings[0]?.id ?? '',
   );
   const [count, setCount] = useState('1');
+  const [tiltDeg, setTiltDeg] = useState('');
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
@@ -65,6 +66,7 @@ export function GlazingFaces({
         area_sqft: Number(area),
         base_glazing_id: baseGlazingId,
         count: Number(count) || 1,
+        tilt_deg: tiltDeg ? Number(tiltDeg) : null,
       });
       onProjectUpdate(updated);
       setArea('');
@@ -142,7 +144,7 @@ export function GlazingFaces({
       )}
 
       <div className="mt-4 rounded-md border border-dashed border-ink/20 p-4">
-        <div className="grid items-end gap-3 sm:grid-cols-5">
+        <div className="grid items-end gap-3 sm:grid-cols-6">
           <div>
             <Label>Orientation</Label>
             <Select
@@ -170,6 +172,16 @@ export function GlazingFaces({
               type="number"
               value={count}
               onChange={(e) => setCount(e.target.value)}
+            />
+          </div>
+          <div>
+            <Label>Tilt° (optional)</Label>
+            <TextInput
+              type="number"
+              step="1"
+              value={tiltDeg}
+              onChange={(e) => setTiltDeg(e.target.value)}
+              placeholder="90 vert · 0 horiz"
             />
           </div>
           <div className="sm:col-span-2">

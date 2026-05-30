@@ -13,6 +13,10 @@ class EngineFace:
     orientation: str
     area_sqft: float
     base_glazing_id: str
+    # Optional surface tilt in degrees (0 = horizontal/skylight, 90 = vertical).
+    # 3M Prestige is rated specifically for sloped glazing; capturing the angle
+    # lets the audit bundle name the geometry the run assumed.
+    tilt_deg: float | None = None
 
 
 @dataclass
