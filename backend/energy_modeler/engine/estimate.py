@@ -89,8 +89,14 @@ def _avg_vt(project: EngineProject, props_provider) -> float:
     return vt_area / total_area if total_area else 0.0
 
 
-def _baseline_end_uses(meta: dict, area_sf: float) -> EnergyEndUses:
-    total = area_sf * float(meta["nominal_eui_kwh_sf"])
+def _baseline_end_uses(
+    meta: dict, area_sf: float, operating_hours_factor: float = 1.0
+) -> EnergyEndUses:
+    """Prototype EUI is at the prototype's operating-hours schedule; when the
+    user supplied a different operating_hours_per_week, scale total energy by
+    the ratio so the analytical baseline tracks 24/7 vs nights-and-weekends
+    occupancy instead of always reporting prototype hours."""
+    total = area_sf * float(meta["nominal_eui_kwh_sf"]) * operating_hours_factor
     return EnergyEndUses(
         heating_elec_kwh=round(total * meta["heating_fraction"], 1),
         cooling_elec_kwh=round(total * meta["cooling_fraction"], 1),
@@ -241,7 +247,11 @@ def run_project(project: EngineProject) -> tuple[RunResult, list[RunResult]]:
     # defaults. The cooling COP is the dominant lever on $ savings.
     bldg = building.resolve(project, meta)
 
-    proto = _baseline_end_uses(meta, project.gross_floor_area_sf)
+    # Operating-hours adjustment: ratio of user hours to prototype hours.
+    # Clamp to a sensible band so a typo doesn't blow up the result.
+    proto_hours = max(float(meta.get("operating_hours", 55)), 1.0)
+    op_factor = max(0.25, min(4.0, bldg.operating_hours_per_week / proto_hours))
+    proto = _baseline_end_uses(meta, project.gross_floor_area_sf, op_factor)
     # Split the prototype's cooling into a non-window portion (kept fixed) and a
     # window-solar portion (recomputed from the project's actual glazing).
     nonwindow_cooling = proto.cooling_elec_kwh * NONWINDOW_COOLING_FRACTION

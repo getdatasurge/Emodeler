@@ -24,6 +24,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 python3-venv python3-pip \
     libxml2 libxslt1.1 \
     libpango-1.0-0 libpangoft2-1.0-0 \
+    libcairo2 libgdk-pixbuf-2.0-0 shared-mime-info \
     libgomp1 libstdc++6 libx11-6 \
     && rm -rf /var/lib/apt/lists/*
 

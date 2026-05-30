@@ -61,6 +61,7 @@ export function ProjectIntake({
 
   const ADV_NUM_FIELDS = [
     'hvac_cooling_cop', 'hvac_heating_cop', 'hvac_fan_kw_per_cfm',
+    'hvac_economizer_high_limit_f',
     'wall_area_sf', 'wall_u_factor',
     'wall_absorptance', 'roof_area_sf', 'roof_u_factor', 'roof_absorptance',
     'operating_hours_per_week', 'num_floors', 'floor_to_floor_ft',
@@ -331,6 +332,7 @@ export function ProjectIntake({
                   {advNum('hvac_cooling_cop', 'Cooling COP', 'proto default')}
                   {advNum('hvac_heating_cop', 'Heating COP', '3.0')}
                   {advNum('hvac_fan_kw_per_cfm', 'Fan power (kW/CFM)', '0.0005', '0.0001')}
+                  {advNum('hvac_economizer_high_limit_f', 'Economizer high-limit (°F)', '70')}
                   <div>
                     <Label>System type</Label>
                     <Select value={adv.hvac_system_type ?? ''} onChange={setAdvField('hvac_system_type')}>
