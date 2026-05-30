@@ -1,10 +1,11 @@
 """Project / faces / scenarios CRUD (spec Ch 10.1)."""
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from sqlalchemy.orm import Session
 
 from energy_modeler.engine.inputs import BUILDING_FIELDS
+from energy_modeler.parser.survey_xlsx import parse_survey_xlsx
 
 from .. import lookups
 from ..db import get_session
@@ -139,6 +140,53 @@ def add_face(project_id: str, body: FaceIn, session: Session = Depends(get_sessi
     session.add(face)
     session.commit()
     return _serialize(project)
+
+
+@router.post("/api/projects/{project_id}/import-survey-xlsx", status_code=201)
+async def import_survey_xlsx(
+    project_id: str,
+    file: UploadFile = File(...),
+    mode: str = Query("replace", pattern="^(replace|append)$"),
+    units: str = Query("in", pattern="^(in|ft)$"),
+    session: Session = Depends(get_session),
+):
+    """Ingest a 3M/IWFA survey workbook and aggregate windows by Compass into
+    faces. `mode=replace` (default) clears existing faces first; `mode=append`
+    adds to them. `units=in` (default) treats W/H columns as inches."""
+    project = session.get(Project, project_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail={"error": "Project not found",
+                            "code": "NOT_FOUND", "details": {"project_id": project_id}})
+    content = await file.read()
+    try:
+        rows = parse_survey_xlsx(content, units=units)
+    except (ValueError, RuntimeError) as exc:
+        raise HTTPException(status_code=422, detail={
+            "error": str(exc), "code": "SURVEY_PARSE_FAILED",
+            "details": {"filename": file.filename}}) from exc
+    if not rows:
+        raise HTTPException(status_code=422, detail={
+            "error": "No usable rows found in survey sheet (need Compass + W + H per row).",
+            "code": "SURVEY_EMPTY", "details": {"filename": file.filename}})
+
+    if mode == "replace":
+        for f in list(project.faces):
+            session.delete(f)
+        session.flush()
+    note = f"Imported from {file.filename}" if file.filename else "Imported from survey sheet"
+    for r in rows:
+        project.faces.append(Face(
+            orientation=r.orientation, area_sqft=r.area_sqft,
+            base_glazing_id=r.base_glazing_id, count=r.count,
+            notes=r.notes or note,
+        ))
+    session.commit()
+    return {
+        "imported": len(rows),
+        "mode": mode,
+        "units": units,
+        "project": _serialize(project),
+    }
 
 
 @router.post("/api/scenarios", status_code=201)
