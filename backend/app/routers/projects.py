@@ -12,6 +12,7 @@ from energy_modeler.parser.survey_xlsx import (
 )
 
 from .. import lookups
+from ..auth import Identity, require_auth
 from ..db import get_session
 from ..models import CalculationJob, Face, Project, Scenario
 from ..schemas_api import FaceIn, ProjectCreate, ProjectUpdate, ScenarioIn
@@ -54,7 +55,11 @@ def _serialize(project: Project) -> dict:
 
 
 @router.post("/api/projects", status_code=201)
-def create_project(body: ProjectCreate, session: Session = Depends(get_session)):
+def create_project(
+    body: ProjectCreate,
+    session: Session = Depends(get_session),
+    identity: Identity = Depends(require_auth),
+):
     z = lookups.resolve_zip(body.zip)
     climate_zone = body.climate_zone or (z["climate_zone"] if z else None)
     if not climate_zone:
@@ -69,6 +74,7 @@ def create_project(body: ProjectCreate, session: Session = Depends(get_session))
         utility_rate = lookups.utility_for_zip(body.zip)["avg_energy_rate_usd_kwh"]
 
     project = Project(
+        org_id=identity.org_id,
         name=body.name, customer_name=body.customer_name, address_line1=body.address_line1,
         city=body.city, state=body.state, zip=body.zip,
         latitude=(z["lat"] if z else None), longitude=(z["lon"] if z else None),
@@ -92,25 +98,48 @@ def create_project(body: ProjectCreate, session: Session = Depends(get_session))
 
 
 @router.get("/api/projects")
-def list_projects(session: Session = Depends(get_session)):
-    projects = session.query(Project).order_by(Project.created_at.desc()).all()
+def list_projects(
+    session: Session = Depends(get_session),
+    identity: Identity = Depends(require_auth),
+):
+    """Scoped to the caller's org. Single-tenant beta keeps the default
+    DEFAULT_ORG_ID, so everyone sees everything until AUTH_ENFORCED is set
+    and per-org JWTs start flowing."""
+    projects = (
+        session.query(Project)
+        .filter(Project.org_id == identity.org_id)
+        .order_by(Project.created_at.desc())
+        .all()
+    )
     return [{"id": p.id, "name": p.name, "customer_name": p.customer_name, "zip": p.zip,
              "building_type": p.building_type, "status": p.status,
              "climate_zone": p.climate_zone} for p in projects]
 
 
 @router.get("/api/projects/{project_id}")
-def get_project(project_id: str, session: Session = Depends(get_session)):
+def get_project(
+    project_id: str,
+    session: Session = Depends(get_session),
+    identity: Identity = Depends(require_auth),
+):
     project = session.get(Project, project_id)
-    if project is None:
+    if project is None or project.org_id != identity.org_id:
         raise HTTPException(status_code=404, detail={"error": "Project not found",
                             "code": "NOT_FOUND", "details": {"project_id": project_id}})
     return _serialize(project)
 
 
 @router.get("/api/projects/{project_id}/results")
-def get_project_results(project_id: str, session: Session = Depends(get_session)):
+def get_project_results(
+    project_id: str,
+    session: Session = Depends(get_session),
+    identity: Identity = Depends(require_auth),
+):
     """Latest completed calculation comparison for a project."""
+    project = session.get(Project, project_id)
+    if project is None or project.org_id != identity.org_id:
+        raise HTTPException(status_code=404, detail={"error": "Project not found",
+                            "code": "NOT_FOUND", "details": {"project_id": project_id}})
     job = (
         session.query(CalculationJob)
         .filter(CalculationJob.project_id == project_id, CalculationJob.status == "completed")
@@ -124,9 +153,14 @@ def get_project_results(project_id: str, session: Session = Depends(get_session)
 
 
 @router.patch("/api/projects/{project_id}")
-def update_project(project_id: str, body: ProjectUpdate, session: Session = Depends(get_session)):
+def update_project(
+    project_id: str,
+    body: ProjectUpdate,
+    session: Session = Depends(get_session),
+    identity: Identity = Depends(require_auth),
+):
     project = session.get(Project, project_id)
-    if project is None:
+    if project is None or project.org_id != identity.org_id:
         raise HTTPException(status_code=404, detail={"error": "Project not found",
                             "code": "NOT_FOUND", "details": {"project_id": project_id}})
     for field, value in body.model_dump(exclude_none=True).items():
@@ -136,9 +170,14 @@ def update_project(project_id: str, body: ProjectUpdate, session: Session = Depe
 
 
 @router.post("/api/projects/{project_id}/faces", status_code=201)
-def add_face(project_id: str, body: FaceIn, session: Session = Depends(get_session)):
+def add_face(
+    project_id: str,
+    body: FaceIn,
+    session: Session = Depends(get_session),
+    identity: Identity = Depends(require_auth),
+):
     project = session.get(Project, project_id)
-    if project is None:
+    if project is None or project.org_id != identity.org_id:
         raise HTTPException(status_code=404, detail={"error": "Project not found",
                             "code": "NOT_FOUND", "details": {"project_id": project_id}})
     face = Face(project_id=project_id, orientation=body.orientation, area_sqft=body.area_sqft,
@@ -155,12 +194,13 @@ async def import_survey_xlsx(
     mode: str = Query("replace", pattern="^(replace|append)$"),
     units: str = Query("in", pattern="^(in|ft)$"),
     session: Session = Depends(get_session),
+    identity: Identity = Depends(require_auth),
 ):
     """Ingest a 3M/IWFA survey workbook and aggregate windows by Compass into
     faces. `mode=replace` (default) clears existing faces first; `mode=append`
     adds to them. `units=in` (default) treats W/H columns as inches."""
     project = session.get(Project, project_id)
-    if project is None:
+    if project is None or project.org_id != identity.org_id:
         raise HTTPException(status_code=404, detail={"error": "Project not found",
                             "code": "NOT_FOUND", "details": {"project_id": project_id}})
     content = await file.read()
@@ -210,6 +250,7 @@ async def import_survey_portfolio(
     units: str = Query("in", pattern="^(in|ft)$"),
     name_prefix: str = Query(""),
     session: Session = Depends(get_session),
+    identity: Identity = Depends(require_auth),
 ):
     """Create one Project per Building ID found in the survey workbook.
 
@@ -244,6 +285,7 @@ async def import_survey_portfolio(
     for building_id, building_rows in by_building.items():
         proj_name = f"{name_prefix}{building_id}" if name_prefix else building_id
         project = Project(
+            org_id=identity.org_id,
             name=proj_name, zip=zip,
             latitude=(z["lat"] if z else None), longitude=(z["lon"] if z else None),
             climate_zone=cz, building_type=building_type,
@@ -272,9 +314,14 @@ async def import_survey_portfolio(
 
 
 @router.post("/api/scenarios", status_code=201)
-def add_scenario(body: ScenarioIn, project_id: str, session: Session = Depends(get_session)):
+def add_scenario(
+    body: ScenarioIn,
+    project_id: str,
+    session: Session = Depends(get_session),
+    identity: Identity = Depends(require_auth),
+):
     project = session.get(Project, project_id)
-    if project is None:
+    if project is None or project.org_id != identity.org_id:
         raise HTTPException(status_code=404, detail={"error": "Project not found",
                             "code": "NOT_FOUND", "details": {"project_id": project_id}})
     scenario = Scenario(project_id=project_id, label=body.label, film_sku=body.film_sku,
