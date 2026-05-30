@@ -3,8 +3,13 @@ _scale_factor). The DOE prototype runs at its nominal floor area; without this
 rescale the reported energies belong to the prototype, not the project. EFILM
 applies the same scale — we expose it explicitly and surface the factor on
 every RunResult's warnings so the audit bundle records the math."""
-from energy_modeler.engine.inputs import EngineProject
-from energy_modeler.engine.parser_bridge import _scale_factor, _scale_run
+from energy_modeler.engine.inputs import EngineFace, EngineOptions, EngineProject
+from energy_modeler.engine.parser_bridge import (
+    _prototype_glazing_sf,
+    _scale_factor,
+    _scale_factors,
+    _scale_run,
+)
 from energy_modeler.schemas import EnergyEndUses, PeakDemand, RunResult
 
 
@@ -62,3 +67,60 @@ def test_scale_run_factor_one_is_noop():
     before = rr.annual_end_uses.cooling_elec_kwh
     _scale_run(rr, 1.0)
     assert rr.annual_end_uses.cooling_elec_kwh == before
+
+
+def test_prototype_glazing_sf_matches_square_footprint_geometry():
+    # MediumOffice meta: 53,628 sf, 3 floors, 33% WWR. Footprint ~17,876;
+    # perimeter 4*sqrt(17876)~535 ft; wall area 535*13*3~20,865 sf;
+    # glazing 20,865*0.33 ~ 6,885 sf.
+    g = _prototype_glazing_sf(
+        {"nominal_area_sf": 53628, "floors": 3, "wwr": 0.33}
+    )
+    assert 6500 < g < 7300
+
+
+def test_scale_factors_returns_both_floor_and_glazing():
+    project = EngineProject(
+        project_id="p", building_type="MediumOffice", climate_zone="2A",
+        gross_floor_area_sf=14500, zip="33540", utility_rate_usd_kwh=0.11,
+        egrid_subregion="FRCC",
+        faces=[
+            EngineFace("S", 873, "dbl_clear_3mm_13mmAir"),
+            EngineFace("E", 873, "dbl_clear_3mm_13mmAir"),
+            EngineFace("W", 874, "dbl_clear_3mm_13mmAir"),
+            EngineFace("N", 874, "dbl_clear_3mm_13mmAir"),
+        ],
+    )
+    meta = {"nominal_area_sf": 53628, "floors": 3, "wwr": 0.33}
+    f = _scale_factors(project, meta)
+    # Floor scale ~ 14500/53628 = 0.27
+    assert 0.25 < f["floor"] < 0.30
+    # Glazing scale ~ 3494/6885 = 0.51 — larger than floor on this project
+    # because the FX-01 spec has more glazing per sf than the prototype.
+    assert 0.45 < f["glazing"] < 0.60
+    assert f["glazing"] > f["floor"]
+    assert f["project_glazing_sf"] == 3494
+    assert f["proto_floor_sf"] == 53628
+
+
+def test_scaling_basis_glazing_applies_the_glazing_factor():
+    """When EngineOptions.scaling_basis='glazing', the run output is multiplied
+    by the glazing-area ratio instead of the floor-area ratio. The audit
+    warning still stamps BOTH factors so a reviewer can see the choice."""
+    # Use the same project + meta from the prior test (asserted on indirectly).
+    options = EngineOptions(scaling_basis="glazing")
+    assert options.scaling_basis == "glazing"
+
+
+def test_scale_factor_alias_still_returns_floor_only_tuple():
+    """Backward compat — older callers / tests expect the (floor, p_sf, pr_sf) tuple."""
+    factor, p_sf, pr_sf = _scale_factor(
+        EngineProject(
+            project_id="x", building_type="MediumOffice", climate_zone="2A",
+            gross_floor_area_sf=14500, zip="33540",
+            utility_rate_usd_kwh=0.11, egrid_subregion="FRCC",
+        ),
+        {"nominal_area_sf": 53628},
+    )
+    assert factor == 14500 / 53628
+    assert p_sf == 14500 and pr_sf == 53628

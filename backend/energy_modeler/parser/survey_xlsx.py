@@ -44,7 +44,31 @@ _HEADER_ALIASES = {
     "floor": ("floor #", "floor", "floor number"),
     "map_number": ("map number", "map", "map #"),
     "zone": ("zone",),
+    # GC3200 (Solar Gard) handheld SHGC meter — surveyors sample some windows
+    # to spot-check the assumed glazing. We aggregate the readings per bucket
+    # and flag a face when the measured SHGC diverges materially from the
+    # catalog SHGC, so the import isn't silently mis-classifying the glass.
+    "gc3200": ("gc3200 reading", "gc3200", "shgc reading"),
 }
+
+# Catalog SHGCs the GC3200 cross-check compares against, keyed by base_glazing_id.
+# Populated from data/base_glazings.json on first use; kept module-level so the
+# cross-check is cheap inside the hot loop.
+_CATALOG_SHGC_CACHE: dict[str, float] | None = None
+
+
+def _catalog_shgc() -> dict[str, float]:
+    global _CATALOG_SHGC_CACHE
+    if _CATALOG_SHGC_CACHE is None:
+        from .. import datastore
+        _CATALOG_SHGC_CACHE = {g["id"]: float(g["shgc"]) for g in datastore.base_glazings()}
+    return _CATALOG_SHGC_CACHE
+
+
+# Tolerance for the measured-vs-catalog SHGC cross-check. The GC3200 is rated
+# +/-0.03 SHGC, plus glazing-to-glazing variability — 0.06 catches a clearly
+# mis-classified glass type without false-flagging normal scatter.
+_SHGC_DIVERGENCE_THRESHOLD = 0.06
 
 
 @dataclass
@@ -117,6 +141,8 @@ class _Bucket:
     floors: set[str] = field(default_factory=set)
     maps: set[str] = field(default_factory=set)
     zones: set[str] = field(default_factory=set)
+    # GC3200 spot-check sample (one reading per window that the surveyor metered).
+    gc3200_readings: list[float] = field(default_factory=list)
 
 
 def parse_survey_xlsx(
@@ -202,6 +228,9 @@ def parse_survey_xlsx(
             v = _cell(raw, slot)
             if v not in (None, ""):
                 col.add(str(v).strip())
+        gc = _to_float(_cell(raw, "gc3200"))
+        if gc is not None and 0.0 <= gc <= 1.0:
+            b.gc3200_readings.append(gc)
 
     # Stable orientation order (matches the engine's PEAK_POA table) within
     # each (building, glazing) — keeps imports diff-friendly.
@@ -210,6 +239,7 @@ def parse_survey_xlsx(
     sorted_keys = sorted(
         buckets.keys(), key=lambda k: (k[0], order.get(k[1], 99), k[2])
     )
+    catalog_shgc = _catalog_shgc()
     for key in sorted_keys:
         building_id, orientation, glazing_id = key
         b = buckets[key]
@@ -220,6 +250,17 @@ def parse_survey_xlsx(
             notes_parts.append(f"Maps: {_fmt_set(b.maps)}")
         if b.zones:
             notes_parts.append(f"Zones: {_fmt_set(b.zones)}")
+        if b.gc3200_readings:
+            measured = sum(b.gc3200_readings) / len(b.gc3200_readings)
+            cat = catalog_shgc.get(glazing_id)
+            notes_parts.append(
+                f"GC3200 avg SHGC: {measured:.2f} (n={len(b.gc3200_readings)})"
+            )
+            if cat is not None and abs(measured - cat) > _SHGC_DIVERGENCE_THRESHOLD:
+                notes_parts.append(
+                    f"REVIEW: measured SHGC {measured:.2f} vs catalog {cat:.2f} "
+                    f"for {glazing_id} — likely mis-classified glass"
+                )
         out.append(
             SurveyImportRow(
                 orientation=orientation,

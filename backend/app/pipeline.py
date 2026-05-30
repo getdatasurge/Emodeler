@@ -100,7 +100,8 @@ def _citations_text(engine_project: EngineProject, comparison) -> str:
         f"- Building type: {engine_project.building_type}\n"
         f"- Climate zone: {engine_project.climate_zone}\n"
         f"- Nominal floor area: per prototype; project scaled to "
-        f"{engine_project.gross_floor_area_sf:.0f} sf via parser_bridge._scale_run\n\n"
+        f"{engine_project.gross_floor_area_sf:.0f} sf via parser_bridge._scale_run "
+        f"(basis={engine_project.options.scaling_basis})\n\n"
         "## Weather\n"
         f"- Representative station: {weather}\n"
         f"- Dataset: {weather_set} (energycodes.gov IECC bundle)\n\n"
@@ -199,6 +200,7 @@ def run_job(job_id: str) -> None:
             include_appendix_g_baseline=raw_opts.get("include_appendix_g_baseline", False),
             include_demand_charge=raw_opts.get("include_demand_charge", False),
             demand_charge_usd_per_kw=raw_opts.get("demand_charge_usd_per_kw", 0.0),
+            scaling_basis=raw_opts.get("scaling_basis", "floor"),
         )
         engine_project = to_engine_project(project, opts)
 

@@ -30,6 +30,11 @@ class EngineOptions:
     include_appendix_g_baseline: bool = False
     include_demand_charge: bool = False
     demand_charge_usd_per_kw: float = 0.0
+    # Prototype-to-project rescale basis: 'floor' (matches EFILM, default) or
+    # 'glazing' (project glazing area / prototype glazing area — more physical
+    # for window-film savings since the delta is glazing-area-driven).
+    # parser_bridge stamps BOTH factors onto the run's warnings either way.
+    scaling_basis: str = "floor"
 
 
 @dataclass

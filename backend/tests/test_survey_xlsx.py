@@ -169,6 +169,49 @@ def test_notes_capture_floor_map_zone_for_audit_trail():
     assert "Zones: 1, 2" in face.notes
 
 
+def test_gc3200_readings_record_avg_and_flag_divergence():
+    # Surveyor metered 4 South windows; the readings cluster around 0.71 SHGC
+    # but the assumed glazing (default Clear, SHGC 0.70) matches -> no REVIEW.
+    rows = [
+        HEADER,
+        [None, None, None, None, None, None, "Clear", "S", 0.70, None, 30, 30],
+        [None, None, None, None, None, None, None,    None, 0.72, None, 30, 30],
+        [None, None, None, None, None, None, None,    None, 0.71, None, 30, 30],
+    ]
+    out = parse_survey_xlsx(_make_workbook(rows))
+    assert len(out) == 1 and "GC3200 avg SHGC: 0.71" in (out[0].notes or "")
+    assert "REVIEW" not in (out[0].notes or "")
+
+
+def test_gc3200_divergence_above_threshold_flags_review():
+    # Glass labeled Clear (catalog SHGC 0.70) but the meter shows 0.45 —
+    # a Solar-Bronze or low-E mis-classified as Clear. REVIEW note added.
+    rows = [
+        HEADER,
+        [None, None, None, None, None, None, "Clear", "S", 0.45, None, 30, 30],
+        [None, None, None, None, None, None, None,    None, 0.46, None, 30, 30],
+        [None, None, None, None, None, None, None,    None, 0.44, None, 30, 30],
+    ]
+    out = parse_survey_xlsx(_make_workbook(rows))
+    notes = out[0].notes or ""
+    assert "REVIEW" in notes
+    assert "0.45" in notes  # measured avg
+    assert "dbl_clear_3mm_13mmAir" in notes  # which glazing it disagrees with
+
+
+def test_gc3200_ignores_out_of_range_or_blank_values():
+    # 1.5 isn't a SHGC; blank cells are blank. Only valid readings count.
+    rows = [
+        HEADER,
+        [None, None, None, None, None, None, "Clear", "S", None, None, 30, 30],
+        [None, None, None, None, None, None, None,    None, 1.5,  None, 30, 30],
+        [None, None, None, None, None, None, None,    None, 0.69, None, 30, 30],
+    ]
+    out = parse_survey_xlsx(_make_workbook(rows))
+    notes = out[0].notes or ""
+    assert "GC3200 avg SHGC: 0.69 (n=1)" in notes
+
+
 def test_resolves_sheet_when_renamed():
     wb = openpyxl.Workbook()
     wb.active.title = "Window Survey"  # not exactly 'Survey Sheet'

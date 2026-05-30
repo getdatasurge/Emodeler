@@ -43,24 +43,58 @@ _SCALED_ENERGY_FIELDS = (
 )
 
 
-def _scale_factor(project: EngineProject, meta: dict[str, Any]) -> tuple[float, float, float]:
-    """Prototype-to-project floor-area scaling factor.
+def _prototype_glazing_sf(meta: dict[str, Any]) -> float:
+    """Estimate the DOE prototype's exterior glazing area from its meta
+    (nominal_area_sf, floors, wwr). Matches engine.building.resolve's
+    square-footprint assumption so the two paths stay consistent."""
+    import math as _math
 
-    DOE prototypes run at their nominal floor area (~53k sf for MediumOffice)
-    regardless of the project's size. Without this rescale the EnergyPlus run
-    would report the *prototype's* energy and savings, not the project's — a
-    reviewer would catch that immediately on a renovation that's a fraction of
-    the prototype. EFILM applies the same scale; we expose it explicitly so the
-    audit bundle records the math.
-
-    Returns (factor, project_sf, prototype_sf). factor=1.0 when either side
-    is missing.
-    """
     proto_sf = float(meta.get("nominal_area_sf") or 0.0)
+    floors = max(int(meta.get("floors") or 1), 1)
+    wwr = float(meta.get("wwr") or 0.0)
+    if proto_sf <= 0.0 or wwr <= 0.0:
+        return 0.0
+    footprint = proto_sf / floors
+    perimeter_ft = 4.0 * _math.sqrt(footprint)
+    floor_to_floor = 13.0  # matches building.DEFAULT_FLOOR_TO_FLOOR_FT
+    return perimeter_ft * floor_to_floor * floors * wwr
+
+
+def _scale_factors(project: EngineProject, meta: dict[str, Any]) -> dict[str, float]:
+    """Compute both candidate scale factors so the run records the math
+    regardless of which one was applied.
+
+    floor:    project_floor_sf / prototype_floor_sf — matches EFILM.
+    glazing:  sum(face.area_sqft) / prototype_glazing_sf — more physical for
+              window-film savings since the savings delta is glazing-area-driven.
+    """
     project_sf = float(project.gross_floor_area_sf or 0.0)
-    if proto_sf <= 0.0 or project_sf <= 0.0:
-        return 1.0, project_sf, proto_sf
-    return project_sf / proto_sf, project_sf, proto_sf
+    proto_sf = float(meta.get("nominal_area_sf") or 0.0)
+    project_glazing = sum((f.area_sqft or 0.0) for f in project.faces)
+    proto_glazing = _prototype_glazing_sf(meta)
+    floor = project_sf / proto_sf if (proto_sf > 0 and project_sf > 0) else 1.0
+    glazing = (
+        project_glazing / proto_glazing
+        if (proto_glazing > 0 and project_glazing > 0)
+        else 1.0
+    )
+    return {
+        "floor": floor,
+        "glazing": glazing,
+        "project_floor_sf": project_sf,
+        "proto_floor_sf": proto_sf,
+        "project_glazing_sf": project_glazing,
+        "proto_glazing_sf": round(proto_glazing, 1),
+    }
+
+
+# Backward-compat alias for callers (incl. tests) that still expect the older
+# floor-only signature: (factor, project_sf, proto_sf).
+def _scale_factor(
+    project: EngineProject, meta: dict[str, Any]
+) -> tuple[float, float, float]:
+    f = _scale_factors(project, meta)
+    return f["floor"], f["project_floor_sf"], f["proto_floor_sf"]
 
 
 def _attach_window_solar(rr: RunResult, run_dir, scale: float) -> None:
@@ -190,13 +224,18 @@ def run_real_pipeline(project: EngineProject) -> tuple[str, RunResult, list[RunR
                 film_runs.append(rr)
 
     assert baseline is not None
-    scale, project_sf, proto_sf = _scale_factor(project, meta)
-    if scale != 1.0:
+    factors = _scale_factors(project, meta)
+    basis = (project.options.scaling_basis or "floor").lower()
+    applied = factors.get(basis, factors["floor"])
+    if applied != 1.0:
         for rr in [baseline, *film_runs]:
-            _scale_run(rr, scale)
+            _scale_run(rr, applied)
             rr.warnings.append(
-                f"Prototype-to-project scale factor: {scale:.4f} "
-                f"({project_sf:.0f} sf project / {proto_sf:.0f} sf prototype) "
-                "applied uniformly to end-uses + peak demand."
+                f"Prototype-to-project scale: basis={basis} factor={applied:.4f} "
+                f"(floor {factors['floor']:.4f} = "
+                f"{factors['project_floor_sf']:.0f}/{factors['proto_floor_sf']:.0f} sf, "
+                f"glazing {factors['glazing']:.4f} = "
+                f"{factors['project_glazing_sf']:.0f}/{factors['proto_glazing_sf']:.0f} sf). "
+                "Applied uniformly to end-uses + peak demand + transmitted solar."
             )
     return "energyplus", baseline, film_runs
