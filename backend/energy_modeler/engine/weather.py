@@ -38,12 +38,18 @@ def epw_for_zip(zip_code: str) -> str:
 
 # Window face -> (tilt, azimuth) in PVWatts/EnergyPlus convention
 # (azimuth clockwise from north: 0=N, 90=E, 180=S, 270=W; tilt 90 = vertical).
+# 8-point compass: surveyors record at the intercardinals (NE/SE/SW/NW) and
+# losing that fidelity hides the SW-face afternoon cooling peak.
 FACE_GEOMETRY = {
-    "S": (90.0, 180.0),
-    "N": (90.0, 0.0),
-    "E": (90.0, 90.0),
-    "W": (90.0, 270.0),
-    "H": (0.0, 180.0),
+    "N":  (90.0, 0.0),
+    "NE": (90.0, 45.0),
+    "E":  (90.0, 90.0),
+    "SE": (90.0, 135.0),
+    "S":  (90.0, 180.0),
+    "SW": (90.0, 225.0),
+    "W":  (90.0, 270.0),
+    "NW": (90.0, 315.0),
+    "H":  (0.0, 180.0),
 }
 
 
@@ -108,11 +114,28 @@ def solar_resource(zip_code: str, climate_zone: str | None = None) -> dict[str, 
 
 
 def monthly_poa_by_face(zip_code: str, climate_zone: str) -> dict[str, list[float]]:
-    """{'S': [...12], 'E': [...], 'W': [...], 'N': [...], 'H': [...]} for the engine."""
+    """Monthly POA (kWh/m2) per 8-point compass face + horizontal, for this
+    project's ZIP. Live PVWatts when NREL_API_KEY is set; otherwise the bundled
+    climate-zone POA. Intercardinals are approximated as the per-month average
+    of their two adjacent cardinals in the offline fallback (PVWatts returns
+    them exactly when live)."""
     fallback = datastore.get_climate_solar(climate_zone) or {}
     z = datastore.get_zip(zip_code)
+    # Map each intercardinal to the two cardinals it sits between, so the
+    # offline fallback can synthesize a reasonable per-month series.
+    INTERCARDINAL_ADJACENTS = {"NE": ("N", "E"), "SE": ("S", "E"),
+                               "SW": ("S", "W"), "NW": ("N", "W")}
+
+    def _fallback_for(face: str) -> list[float]:
+        if face in INTERCARDINAL_ADJACENTS:
+            a, b = INTERCARDINAL_ADJACENTS[face]
+            fa = fallback.get(a, [0.0] * 12)
+            fb = fallback.get(b, [0.0] * 12)
+            return [(fa[i] + fb[i]) / 2.0 for i in range(12)]
+        return fallback.get(face, [0.0] * 12)
+
     out: dict[str, list[float]] = {}
-    for face in ("S", "E", "W", "N", "H"):
+    for face in ("S", "N", "E", "W", "NE", "SE", "SW", "NW", "H"):
         live = _live_poa(z["lat"], z["lon"], face) if z else None
-        out[face] = live or fallback.get(face, [0.0] * 12)
+        out[face] = live or _fallback_for(face)
     return out

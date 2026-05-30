@@ -7,7 +7,10 @@ from dataclasses import dataclass, field
 
 @dataclass
 class EngineFace:
-    orientation: str  # 'N' | 'S' | 'E' | 'W' | 'H'
+    # 8-point compass plus horizontal (skylights): N | NE | E | SE | S | SW | W | NW | H.
+    # Surveyors record at intercardinals (per the 3M/IWFA survey sheet); keeping
+    # that fidelity matters because SW catches the afternoon cooling peak.
+    orientation: str
     area_sqft: float
     base_glazing_id: str
 

@@ -83,7 +83,7 @@ class Face(Base):
     __tablename__ = "faces"
     id: Mapped[str] = mapped_column(String, primary_key=True, default=_uuid)
     project_id: Mapped[str] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"))
-    orientation: Mapped[str] = mapped_column(String, nullable=False)  # N S E W H
+    orientation: Mapped[str] = mapped_column(String, nullable=False)  # 8-point: N NE E SE S SW W NW + H
     area_sqft: Mapped[float] = mapped_column(Float, nullable=False)
     base_glazing_id: Mapped[str] = mapped_column(String, nullable=False)
     count: Mapped[int] = mapped_column(Integer, default=1)

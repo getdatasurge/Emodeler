@@ -22,7 +22,7 @@ export interface ProjectSummary {
 
 export interface Face {
   id: string;
-  orientation: string; // N | S | E | W | H
+  orientation: string; // 8-point compass: N | NE | E | SE | S | SW | W | NW | H (skylight)
   area_sqft: number;
   base_glazing_id: string;
   count: number;

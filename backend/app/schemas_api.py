@@ -5,7 +5,8 @@ from pydantic import BaseModel, Field
 
 
 class FaceIn(BaseModel):
-    orientation: str = Field(pattern="^[NSEWH]$")
+    # 8-point compass + H (skylights). Surveyors record at the intercardinals.
+    orientation: str = Field(pattern="^(N|NE|E|SE|S|SW|W|NW|H)$")
     area_sqft: float = Field(gt=0)
     base_glazing_id: str
     count: int = 1

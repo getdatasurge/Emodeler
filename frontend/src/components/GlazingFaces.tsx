@@ -3,7 +3,8 @@ import { api } from '../api';
 import type { BaseGlazing, Project } from '../types';
 import { Button, ErrorBox, Label, Select, TextInput } from './ui';
 
-const ORIENTATIONS = ['N', 'S', 'E', 'W', 'H'];
+// 8-point compass (the resolution surveyors record at) + H for skylights.
+const ORIENTATIONS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW', 'H'];
 
 export function GlazingFaces({
   project,
