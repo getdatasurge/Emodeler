@@ -49,6 +49,10 @@ class ProjectCreate(BuildingInputs):
     # Optional — auto-filled from ZIP when omitted.
     climate_zone: str | None = None
     utility_rate_usd_kwh: float | None = None
+    # Optional natural-gas rate ($/therm). Required for correct dollar savings on
+    # gas-heated buildings (cold-climate offices, schools); harmless when unset
+    # for all-electric projects.
+    gas_rate_usd_therm: float | None = Field(default=None, ge=0)
     egrid_subregion: str | None = None
     faces: list[FaceIn] = Field(default_factory=list)
     scenarios: list[ScenarioIn] = Field(default_factory=list)
@@ -59,6 +63,7 @@ class ProjectUpdate(BuildingInputs):
     customer_name: str | None = None
     gross_floor_area_sf: float | None = None
     utility_rate_usd_kwh: float | None = None
+    gas_rate_usd_therm: float | None = Field(default=None, ge=0)
     status: str | None = None
 
 

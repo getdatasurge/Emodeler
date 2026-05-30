@@ -32,6 +32,7 @@ def _serialize(project: Project) -> dict:
         "utility_label": project.utility_label,
         "utility_rate_usd_kwh": project.utility_rate_usd_kwh,
         "utility_rate_source": project.utility_rate_source,
+        "gas_rate_usd_therm": project.gas_rate_usd_therm,
         "egrid_subregion": project.egrid_subregion,
         **{k: getattr(project, k) for k in BUILDING_FIELDS},
         "status": project.status,
@@ -70,6 +71,7 @@ def create_project(body: ProjectCreate, session: Session = Depends(get_session))
         climate_zone=climate_zone, building_type=body.building_type,
         gross_floor_area_sf=body.gross_floor_area_sf,
         utility_rate_usd_kwh=utility_rate, utility_rate_source=rate_source,
+        gas_rate_usd_therm=body.gas_rate_usd_therm,
         egrid_subregion=egrid_subregion,
     )
     for k in BUILDING_FIELDS:

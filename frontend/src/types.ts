@@ -70,6 +70,7 @@ export interface Project extends BuildingInputs {
   utility_label: string | null;
   utility_rate_usd_kwh: number | null;
   utility_rate_source: string | null;
+  gas_rate_usd_therm: number | null;
   egrid_subregion: string | null;
   status: string;
   faces: Face[];
@@ -101,6 +102,7 @@ export interface ProjectCreate extends BuildingInputs {
   gross_floor_area_sf: number;
   climate_zone?: string | null;
   utility_rate_usd_kwh?: number | null;
+  gas_rate_usd_therm?: number | null;
   egrid_subregion?: string | null;
   faces?: FaceInput[];
   scenarios?: ScenarioInput[];
@@ -198,6 +200,7 @@ export interface ScenarioResult {
   delta_heating_kwh: number;
   delta_lighting_kwh: number;
   delta_total_kwh: number;
+  delta_gas_kwh: number;
   delta_peak_kw: number;
   delta_cost_usd_per_year: number;
   delta_co2_lb_per_year: number;

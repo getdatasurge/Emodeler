@@ -51,6 +51,8 @@ class Project(Base):
     utility_label: Mapped[str | None] = mapped_column(String)
     utility_rate_usd_kwh: Mapped[float] = mapped_column(Float, nullable=False)
     utility_rate_source: Mapped[str] = mapped_column(String, default="urdb")
+    # Optional gas rate ($/therm); when set, heating-gas savings are priced.
+    gas_rate_usd_therm: Mapped[float | None] = mapped_column(Float)
     egrid_subregion: Mapped[str] = mapped_column(String, nullable=False)
     # As-built building characterization (spec Ch 5.3). All optional: blank
     # values fall back to prototype / climate-zone defaults at calc time.

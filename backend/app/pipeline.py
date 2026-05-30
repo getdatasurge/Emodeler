@@ -34,6 +34,7 @@ def to_engine_project(project: Project, options: EngineOptions) -> EngineProject
         gross_floor_area_sf=project.gross_floor_area_sf,
         zip=project.zip,
         utility_rate_usd_kwh=project.utility_rate_usd_kwh,
+        gas_rate_usd_therm=project.gas_rate_usd_therm,
         egrid_subregion=project.egrid_subregion,
         faces=[
             EngineFace(orientation=f.orientation, area_sqft=f.area_sqft, base_glazing_id=f.base_glazing_id)
