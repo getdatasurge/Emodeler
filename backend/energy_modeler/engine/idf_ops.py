@@ -125,10 +125,13 @@ _OUTPUT_METERS = (
     "Fans:Electricity",
     "InteriorLights:Electricity",
 )
+# Energy (J) variants — eplusout.csv aggregates monthly to give a real
+# accumulated quantity. The Rate variant (W) returns mean power, which the
+# parser would have to multiply by hours-per-month, so we ask for Energy.
 _OUTPUT_VARIABLES = (
     "Surface Window Heat Gain Energy",
     "Surface Window Heat Loss Energy",
-    "Surface Window Transmitted Solar Radiation Rate",
+    "Surface Window Transmitted Solar Radiation Energy",
 )
 
 

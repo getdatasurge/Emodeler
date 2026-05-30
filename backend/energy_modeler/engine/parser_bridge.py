@@ -15,10 +15,17 @@ from typing import Any
 
 from .. import datastore
 from ..parser import results
-from ..schemas import RunResult
+from ..parser.eplus_window_solar import parse_window_transmitted_solar
+from ..schemas import RunResult, WindowSurfaceResult
 from . import building, idf_builder, prototype_loader, runner, weather
 from .film_catalog import resolve as resolve_film
+from .idf_ops import _cardinal_from_window_name
 from .inputs import EngineProject
+
+# Same azimuths the FACE_GEOMETRY table uses (0=N, 90=E, 180=S, 270=W). We
+# stamp one per orientation onto the aggregated WindowSurfaceResult so the
+# audit bundle records what the chart's bars represent.
+_CARDINAL_AZIMUTH = {"N": 0.0, "E": 90.0, "S": 180.0, "W": 270.0}
 
 # Intercardinal -> the two adjacent cardinals each contributes half-area to,
 # matching how a SW window catches both the south + west exposure profiles.
@@ -56,6 +63,37 @@ def _scale_factor(project: EngineProject, meta: dict[str, Any]) -> tuple[float, 
     return project_sf / proto_sf, project_sf, proto_sf
 
 
+def _attach_window_solar(rr: RunResult, run_dir, scale: float) -> None:
+    """Aggregate per-window transmitted solar by cardinal direction (parsed
+    from the prototype window Name) and stamp one WindowSurfaceResult per
+    orientation onto the RunResult so the 'Solar gain rejected by face' chart
+    has data. Quietly leaves windows=[] when the variable isn't in the CSV
+    (e.g. older runs without our outputs block)."""
+    per_window = parse_window_transmitted_solar(run_dir)
+    if not per_window:
+        return
+    per_orient: dict[str, float] = {}
+    for window_name, kwh in per_window.items():
+        cardinal = _cardinal_from_window_name(window_name) or "?"
+        per_orient[cardinal] = per_orient.get(cardinal, 0.0) + kwh
+    surfaces: list[WindowSurfaceResult] = []
+    # Stable order — matches the chart's preferred ordering.
+    for cardinal in ("S", "E", "W", "N", "NE", "SE", "SW", "NW", "H", "?"):
+        if cardinal not in per_orient:
+            continue
+        annual_kwh = per_orient[cardinal] * scale
+        surfaces.append(
+            WindowSurfaceResult(
+                surface_name=f"Face_{cardinal}_total",
+                orientation_deg=_CARDINAL_AZIMUTH.get(cardinal, -1.0),
+                tilt_deg=0.0 if cardinal == "H" else 90.0,
+                area_m2=0.0,  # aggregate row, not a single surface area
+                annual_solar_transmitted_kwh=round(annual_kwh, 1),
+            )
+        )
+    rr.windows = surfaces
+
+
 def _scale_run(rr: RunResult, factor: float) -> None:
     """Scale a parsed RunResult's annual energies + peak demand in place."""
     if factor == 1.0:
@@ -69,6 +107,12 @@ def _scale_run(rr: RunResult, factor: float) -> None:
     )
     if rr.monthly_cooling_kwh:
         rr.monthly_cooling_kwh = [round(v * factor, 1) for v in rr.monthly_cooling_kwh]
+    # Per-orientation transmitted solar (attached by _attach_window_solar)
+    # also scales — it's a glazing-area-driven aggregate.
+    for w in rr.windows:
+        w.annual_solar_transmitted_kwh = round(
+            w.annual_solar_transmitted_kwh * factor, 1
+        )
 
 
 def _glazings_by_cardinal(project: EngineProject) -> dict[str, Any]:
@@ -134,7 +178,12 @@ def run_real_pipeline(project: EngineProject) -> tuple[str, RunResult, list[RunR
             idf_path = scen_dir / f"{label.replace(' ', '_')}.idf"
             idf.saveas(str(idf_path))
             runner.run_energyplus(idf_path, Path(epw), scen_dir)
-            rr = results.parse_run(scen_dir / idf_path.stem, label, station=station)
+            run_output_dir = scen_dir / idf_path.stem
+            rr = results.parse_run(run_output_dir, label, station=station)
+            # Per-orientation transmitted solar BEFORE we apply the floor-area
+            # scale below — pass scale=1.0 so the aggregator returns the raw
+            # parsed values; the post-loop _scale_run still multiplies them.
+            _attach_window_solar(rr, run_output_dir, scale=1.0)
             if film is None:
                 baseline = rr
             else:

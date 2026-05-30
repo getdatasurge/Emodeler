@@ -7,10 +7,14 @@ import { CompareBars, MonthlyBars } from './charts';
 import { DataSources } from './DataSources';
 
 const ORIENTATION_NAMES: Record<string, string> = {
-  S: 'South',
-  E: 'East',
-  W: 'West',
   N: 'North',
+  NE: 'Northeast',
+  E: 'East',
+  SE: 'Southeast',
+  S: 'South',
+  SW: 'Southwest',
+  W: 'West',
+  NW: 'Northwest',
   H: 'Horizontal',
 };
 
@@ -59,7 +63,7 @@ function EndUseCard({ baseline, after }: { baseline: RunResult; after: RunResult
 function SolarCard({ baseline, after }: { baseline: RunResult; after: RunResult }) {
   const bo = solarByOrientation(baseline);
   const ao = solarByOrientation(after);
-  const order = ['S', 'E', 'W', 'N', 'H'];
+  const order = ['S', 'SE', 'SW', 'E', 'W', 'NE', 'NW', 'N', 'H'];
   const rows = order
     .filter((o) => o in bo)
     .map((o) => ({ label: ORIENTATION_NAMES[o] ?? o, before: bo[o], after: ao[o] ?? 0 }));

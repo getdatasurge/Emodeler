@@ -1,7 +1,116 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api } from '../api';
 import type { ProjectSummary } from '../types';
-import { Button, ErrorBox, Spinner } from '../components/ui';
+import { Button, ErrorBox, Label, Select, Spinner, TextInput } from '../components/ui';
+
+// IWFA survey workbooks frequently cover a portfolio (Millstone + New Brunswick
+// + Evesham in one file). The portfolio importer splits per Building ID and
+// creates one project per building, applying the template fields to all.
+function PortfolioImportModal({
+  onClose,
+  onCreated,
+}: {
+  onClose: () => void;
+  onCreated: (projects: { id: string; name: string; faces_imported: number }[]) => void;
+}) {
+  const [file, setFile] = useState<File | null>(null);
+  const [zip, setZip] = useState('');
+  const [buildingType, setBuildingType] = useState('MediumOffice');
+  const [area, setArea] = useState('');
+  const [namePrefix, setNamePrefix] = useState('');
+  const [units, setUnits] = useState<'in' | 'ft'>('in');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSubmit() {
+    setError(null);
+    if (!file) { setError('Pick a .xlsx survey workbook.'); return; }
+    if (!zip || !buildingType || !area) {
+      setError('ZIP, building type, and floor area per project are required.');
+      return;
+    }
+    setBusy(true);
+    try {
+      const res = await api.importSurveyPortfolio(file, {
+        zip,
+        building_type: buildingType,
+        gross_floor_area_sf: Number(area),
+        name_prefix: namePrefix || undefined,
+        units,
+      });
+      onCreated(res.projects);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/50 p-4">
+      <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl">
+        <div className="mb-3 flex items-start justify-between">
+          <h2 className="text-lg font-semibold text-ink">Import portfolio survey</h2>
+          <button onClick={onClose} className="text-ink/40 hover:text-ink" aria-label="Close">×</button>
+        </div>
+        <p className="mb-4 text-xs text-ink/60">
+          Reads the IWFA workbook and creates one project per Building ID.
+          The template below applies to every project (tune individual ones
+          after import).
+        </p>
+        <div className="space-y-3">
+          <div>
+            <Label>Survey workbook (.xlsx)</Label>
+            <input
+              type="file"
+              accept=".xlsx"
+              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+              className="block w-full text-sm file:mr-3 file:rounded file:border-0 file:bg-amber file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-white hover:file:bg-amber-dark"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label>ZIP</Label>
+              <TextInput value={zip} onChange={(e) => setZip(e.target.value)} placeholder="33540" />
+            </div>
+            <div>
+              <Label>Floor area per project (sf)</Label>
+              <TextInput value={area} onChange={(e) => setArea(e.target.value)} type="number" placeholder="20000" />
+            </div>
+            <div>
+              <Label>Building type</Label>
+              <Select value={buildingType} onChange={(e) => setBuildingType(e.target.value)}>
+                {['SmallOffice', 'MediumOffice', 'LargeOffice', 'PrimarySchool',
+                  'SecondarySchool', 'RetailStandalone', 'StripMall', 'Warehouse',
+                  'Hospital', 'OutpatientHealthcare', 'Hotel', 'FullServiceRestaurant'].map(
+                    (t) => <option key={t} value={t}>{t}</option>
+                  )}
+              </Select>
+            </div>
+            <div>
+              <Label>Dimension units</Label>
+              <Select value={units} onChange={(e) => setUnits(e.target.value as 'in' | 'ft')}>
+                <option value="in">Inches (default)</option>
+                <option value="ft">Feet</option>
+              </Select>
+            </div>
+            <div className="col-span-2">
+              <Label>Project name prefix (optional)</Label>
+              <TextInput value={namePrefix} onChange={(e) => setNamePrefix(e.target.value)} placeholder='e.g. "Evesham · "' />
+            </div>
+          </div>
+          {error && <ErrorBox message={error} />}
+        </div>
+        <div className="mt-5 flex justify-end gap-2">
+          <Button variant="secondary" onClick={onClose} disabled={busy}>Cancel</Button>
+          <Button onClick={handleSubmit} disabled={busy}>
+            {busy ? 'Importing…' : 'Create projects'}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function StatusPill({ status }: { status: string }) {
   const map: Record<string, string> = {
@@ -35,17 +144,19 @@ export function ProjectsList({
 }) {
   const [projects, setProjects] = useState<ProjectSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [showPortfolio, setShowPortfolio] = useState(false);
+  const [importMsg, setImportMsg] = useState<string | null>(null);
+  const refreshAbortRef = useRef(0);
 
-  useEffect(() => {
-    let active = true;
+  function refresh() {
+    const token = ++refreshAbortRef.current;
     api
       .listProjects()
-      .then((p) => active && setProjects(p))
-      .catch((e) => active && setError(e.message));
-    return () => {
-      active = false;
-    };
-  }, []);
+      .then((p) => { if (token === refreshAbortRef.current) setProjects(p); })
+      .catch((e) => { if (token === refreshAbortRef.current) setError(e.message); });
+  }
+
+  useEffect(() => { refresh(); }, []);
 
   const count = projects?.length ?? 0;
 
@@ -59,8 +170,33 @@ export function ProjectsList({
             with payback, peak-demand cut, and CO₂ avoided for each building.
           </p>
         </div>
-        <Button onClick={onNew}>+ New Project</Button>
+        <div className="flex items-center gap-2">
+          <Button variant="secondary" onClick={() => setShowPortfolio(true)}>
+            Import portfolio (.xlsx)
+          </Button>
+          <Button onClick={onNew}>+ New Project</Button>
+        </div>
       </div>
+
+      {showPortfolio && (
+        <PortfolioImportModal
+          onClose={() => setShowPortfolio(false)}
+          onCreated={(created) => {
+            setShowPortfolio(false);
+            setImportMsg(
+              `Created ${created.length} project${created.length === 1 ? '' : 's'}: ` +
+              created.map((p) => p.name).slice(0, 5).join(', ') +
+              (created.length > 5 ? `, +${created.length - 5} more` : ''),
+            );
+            refresh();
+          }}
+        />
+      )}
+      {importMsg && (
+        <div className="mb-4 rounded-md bg-green-50 px-3 py-2 text-sm text-green-800">
+          {importMsg}
+        </div>
+      )}
 
       {error && <ErrorBox message={error} />}
       {!projects && !error && <Spinner label="Loading projects…" />}

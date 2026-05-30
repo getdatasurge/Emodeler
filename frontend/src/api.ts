@@ -145,6 +145,56 @@ export const api = {
     };
   },
 
+  importSurveyPortfolio: async (
+    file: File,
+    template: {
+      zip: string;
+      building_type: string;
+      gross_floor_area_sf: number;
+      climate_zone?: string | null;
+      name_prefix?: string;
+      units?: 'in' | 'ft';
+    },
+  ) => {
+    const params = new URLSearchParams({
+      zip: template.zip,
+      building_type: template.building_type,
+      gross_floor_area_sf: String(template.gross_floor_area_sf),
+      units: template.units ?? 'in',
+    });
+    if (template.climate_zone) params.set('climate_zone', template.climate_zone);
+    if (template.name_prefix) params.set('name_prefix', template.name_prefix);
+
+    const form = new FormData();
+    form.append('file', file);
+    const token = getAccessToken();
+    const resp = await fetch(
+      `${API_BASE}/api/projects/import-survey-portfolio?${params.toString()}`,
+      {
+        method: 'POST',
+        body: form,
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      },
+    );
+    const text = await resp.text();
+    let data: unknown = null;
+    if (text) {
+      try { data = JSON.parse(text); } catch { data = text; }
+    }
+    if (!resp.ok) {
+      throw new ApiError(
+        extractError(data) || `Portfolio import failed (${resp.status})`,
+        resp.status,
+        data,
+      );
+    }
+    return data as {
+      created: number;
+      units: string;
+      projects: { id: string; name: string; faces_imported: number }[];
+    };
+  },
+
   climateZone: (zip: string) => request<ClimateZone>(`/api/climate-zone/${zip}`),
   egrid: (zip: string) => request<Egrid>(`/api/egrid/${zip}`),
   utility: (zip: string) => request<Utility>(`/api/utility/${zip}`),
