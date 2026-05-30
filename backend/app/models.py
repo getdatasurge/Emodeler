@@ -59,6 +59,8 @@ class Project(Base):
     hvac_cooling_cop: Mapped[float | None] = mapped_column(Float)
     hvac_heating_cop: Mapped[float | None] = mapped_column(Float)
     hvac_system_type: Mapped[str | None] = mapped_column(String)
+    hvac_fan_kw_per_cfm: Mapped[float | None] = mapped_column(Float)
+    hvac_economizer_high_limit_f: Mapped[float | None] = mapped_column(Float)
     wall_area_sf: Mapped[float | None] = mapped_column(Float)
     wall_u_factor: Mapped[float | None] = mapped_column(Float)
     wall_absorptance: Mapped[float | None] = mapped_column(Float)
@@ -89,6 +91,9 @@ class Face(Base):
     area_sqft: Mapped[float] = mapped_column(Float, nullable=False)
     base_glazing_id: Mapped[str] = mapped_column(String, nullable=False)
     count: Mapped[int] = mapped_column(Integer, default=1)
+    # Optional surface tilt (deg); None -> use the orientation's default (vertical
+    # for cardinals/intercardinals, horizontal for H).
+    tilt_deg: Mapped[float | None] = mapped_column(Float)
     notes: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
 

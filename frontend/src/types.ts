@@ -26,6 +26,7 @@ export interface Face {
   area_sqft: number;
   base_glazing_id: string;
   count: number;
+  tilt_deg: number | null;
   notes: string | null;
 }
 
@@ -82,6 +83,7 @@ export interface FaceInput {
   area_sqft: number;
   base_glazing_id: string;
   count: number;
+  tilt_deg?: number | null;
   notes?: string | null;
 }
 
@@ -178,6 +180,8 @@ export interface CalcOptions {
   utility_escalation: number;
   include_demand_charge?: boolean;
   demand_charge_usd_per_kw?: number;
+  scaling_basis?: 'floor' | 'glazing';
+  include_appendix_g_baseline?: boolean;
 }
 
 export interface CalcRunRequest {
@@ -277,12 +281,21 @@ export interface ResolvedBuilding {
   sources: Record<string, 'user' | 'default'>;
 }
 
+export interface AppendixGComparison {
+  run: RunResult;
+  window_u_factor: number;
+  window_shgc: number;
+  pct_savings_vs_code_baseline: number;
+  cooling_pct_savings_vs_code_baseline: number;
+}
+
 export interface Comparison {
   project_id: string;
   engine_mode: string;
   baseline: RunResult;
   films: ScenarioResult[];
   film_runs: RunResult[];
+  appendix_g?: AppendixGComparison | null;
   building: ResolvedBuilding | null;
   generated_at: string;
   warnings: string[];

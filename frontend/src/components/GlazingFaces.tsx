@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { api } from '../api';
 import type { BaseGlazing, Project } from '../types';
 import { Button, ErrorBox, Label, Select, TextInput } from './ui';
+import { pushToast } from './Toast';
 
 // 8-point compass (the resolution surveyors record at) + H for skylights.
 const ORIENTATIONS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW', 'H'];
@@ -21,6 +22,7 @@ export function GlazingFaces({
     baseGlazings[0]?.id ?? '',
   );
   const [count, setCount] = useState('1');
+  const [tiltDeg, setTiltDeg] = useState('');
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
@@ -37,11 +39,13 @@ export function GlazingFaces({
     try {
       const res = await api.importSurvey(project.id, file, 'replace');
       onProjectUpdate(res.project);
-      setImportMsg(
-        `Imported ${res.imported} face${res.imported === 1 ? '' : 's'} from ${file.name}.`,
-      );
+      const msg = `Imported ${res.imported} face${res.imported === 1 ? '' : 's'} from ${file.name}.`;
+      setImportMsg(msg);
+      pushToast('success', msg);
     } catch (e) {
-      setError((e as Error).message);
+      const msg = (e as Error).message;
+      setError(msg);
+      pushToast('error', `Survey import failed: ${msg}`, 8000);
     } finally {
       setImporting(false);
       if (fileRef.current) fileRef.current.value = '';
@@ -65,11 +69,15 @@ export function GlazingFaces({
         area_sqft: Number(area),
         base_glazing_id: baseGlazingId,
         count: Number(count) || 1,
+        tilt_deg: tiltDeg ? Number(tiltDeg) : null,
       });
       onProjectUpdate(updated);
       setArea('');
+      pushToast('success', `Added ${orientation} face (${area} sf).`, 3000);
     } catch (e) {
-      setError((e as Error).message);
+      const msg = (e as Error).message;
+      setError(msg);
+      pushToast('error', `Failed to add face: ${msg}`, 6000);
     } finally {
       setAdding(false);
     }
@@ -116,6 +124,7 @@ export function GlazingFaces({
                 <th className="px-3 py-2">Orientation</th>
                 <th className="px-3 py-2">Area (sf)</th>
                 <th className="px-3 py-2">Count</th>
+                <th className="px-3 py-2">Tilt°</th>
                 <th className="px-3 py-2">Base glazing</th>
               </tr>
             </thead>
@@ -127,6 +136,9 @@ export function GlazingFaces({
                   </td>
                   <td className="px-3 py-2">{f.area_sqft.toLocaleString()}</td>
                   <td className="px-3 py-2">{f.count}</td>
+                  <td className="px-3 py-2 text-ink/70">
+                    {f.tilt_deg ?? (f.orientation === 'H' ? 0 : 90)}
+                  </td>
                   <td className="px-3 py-2 text-ink/80">
                     {glazingName(f.base_glazing_id)}
                   </td>
@@ -142,7 +154,7 @@ export function GlazingFaces({
       )}
 
       <div className="mt-4 rounded-md border border-dashed border-ink/20 p-4">
-        <div className="grid items-end gap-3 sm:grid-cols-5">
+        <div className="grid items-end gap-3 sm:grid-cols-6">
           <div>
             <Label>Orientation</Label>
             <Select
@@ -170,6 +182,16 @@ export function GlazingFaces({
               type="number"
               value={count}
               onChange={(e) => setCount(e.target.value)}
+            />
+          </div>
+          <div>
+            <Label>Tilt° (optional)</Label>
+            <TextInput
+              type="number"
+              step="1"
+              value={tiltDeg}
+              onChange={(e) => setTiltDeg(e.target.value)}
+              placeholder="90 vert · 0 horiz"
             />
           </div>
           <div className="sm:col-span-2">

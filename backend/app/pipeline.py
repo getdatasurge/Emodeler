@@ -38,7 +38,10 @@ def to_engine_project(project: Project, options: EngineOptions) -> EngineProject
         gas_rate_usd_therm=project.gas_rate_usd_therm,
         egrid_subregion=project.egrid_subregion,
         faces=[
-            EngineFace(orientation=f.orientation, area_sqft=f.area_sqft, base_glazing_id=f.base_glazing_id)
+            EngineFace(
+                orientation=f.orientation, area_sqft=f.area_sqft,
+                base_glazing_id=f.base_glazing_id, tilt_deg=f.tilt_deg,
+            )
             for f in project.faces
         ],
         scenarios=[
@@ -100,7 +103,8 @@ def _citations_text(engine_project: EngineProject, comparison) -> str:
         f"- Building type: {engine_project.building_type}\n"
         f"- Climate zone: {engine_project.climate_zone}\n"
         f"- Nominal floor area: per prototype; project scaled to "
-        f"{engine_project.gross_floor_area_sf:.0f} sf via parser_bridge._scale_run\n\n"
+        f"{engine_project.gross_floor_area_sf:.0f} sf via parser_bridge._scale_run "
+        f"(basis={engine_project.options.scaling_basis})\n\n"
         "## Weather\n"
         f"- Representative station: {weather}\n"
         f"- Dataset: {weather_set} (energycodes.gov IECC bundle)\n\n"
@@ -125,6 +129,18 @@ def _citations_text(engine_project: EngineProject, comparison) -> str:
         + f"- Film life: {engine_project.options.film_life_yrs} yr; "
         f"discount {engine_project.options.discount_rate:.1%}; "
         f"utility escalation {engine_project.options.utility_escalation:.1%}\n"
+        + (
+            "\n## LEED PCI anchor (ASHRAE 90.1-2019 Appendix G)\n"
+            f"- Same prototype + weather rerun with prescriptive fenestration "
+            f"U={comparison.appendix_g.window_u_factor:.2f} BTU/h.ft^2.F, "
+            f"SHGC={comparison.appendix_g.window_shgc} (Table G3.4).\n"
+            f"- Project % total-electricity savings vs the Appendix G run: "
+            f"{comparison.appendix_g.pct_savings_vs_code_baseline}%\n"
+            f"- Project % cooling-electricity savings vs the Appendix G run: "
+            f"{comparison.appendix_g.cooling_pct_savings_vs_code_baseline}%\n"
+            if comparison.appendix_g is not None
+            else ""
+        )
     )
 
 
@@ -199,12 +215,17 @@ def run_job(job_id: str) -> None:
             include_appendix_g_baseline=raw_opts.get("include_appendix_g_baseline", False),
             include_demand_charge=raw_opts.get("include_demand_charge", False),
             demand_charge_usd_per_kw=raw_opts.get("demand_charge_usd_per_kw", 0.0),
+            scaling_basis=raw_opts.get("scaling_basis", "floor"),
+            add_daylighting_controls=raw_opts.get("add_daylighting_controls", False),
         )
         engine_project = to_engine_project(project, opts)
 
         try:
-            mode, baseline, film_runs = runner.run_project(engine_project)
-            comparison = results.build_comparison(engine_project, baseline, film_runs, mode)
+            mode, baseline, film_runs, appendix_g_run = runner.run_project(engine_project)
+            comparison = results.build_comparison(
+                engine_project, baseline, film_runs, mode,
+                appendix_g_run=appendix_g_run,
+            )
             bundle_path = build_audit_bundle(job_id, engine_project, comparison)
 
             job.engine_mode = mode

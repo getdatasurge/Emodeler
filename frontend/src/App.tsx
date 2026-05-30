@@ -4,6 +4,7 @@ import type { Meta } from './types';
 import { Header } from './components/Header';
 import { EstimateBanner } from './components/EstimateBanner';
 import { Spinner } from './components/ui';
+import { ToastStack } from './components/Toast';
 import { useSession, signOut } from './auth/useSession';
 import { Login } from './auth/Login';
 import { ProjectsList } from './views/ProjectsList';
@@ -52,6 +53,7 @@ export default function App() {
 
   return (
     <div className="min-h-full bg-neutralbg text-ink">
+      <ToastStack />
       <Header
         onHome={() => setRoute({ view: 'list' })}
         onSignOut={authEnabled ? () => void signOut() : undefined}

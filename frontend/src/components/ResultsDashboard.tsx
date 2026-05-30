@@ -5,12 +5,17 @@ import { recommendedIndex } from '../recommend';
 import { Button, Card } from './ui';
 import { CompareBars, MonthlyBars } from './charts';
 import { DataSources } from './DataSources';
+import { EngineModeBadge, WarningsList, dataSanityIssues } from './Warnings';
 
 const ORIENTATION_NAMES: Record<string, string> = {
-  S: 'South',
-  E: 'East',
-  W: 'West',
   N: 'North',
+  NE: 'Northeast',
+  E: 'East',
+  SE: 'Southeast',
+  S: 'South',
+  SW: 'Southwest',
+  W: 'West',
+  NW: 'Northwest',
   H: 'Horizontal',
 };
 
@@ -59,7 +64,7 @@ function EndUseCard({ baseline, after }: { baseline: RunResult; after: RunResult
 function SolarCard({ baseline, after }: { baseline: RunResult; after: RunResult }) {
   const bo = solarByOrientation(baseline);
   const ao = solarByOrientation(after);
-  const order = ['S', 'E', 'W', 'N', 'H'];
+  const order = ['S', 'SE', 'SW', 'E', 'W', 'NE', 'NW', 'N', 'H'];
   const rows = order
     .filter((o) => o in bo)
     .map((o) => ({ label: ORIENTATION_NAMES[o] ?? o, before: bo[o], after: ao[o] ?? 0 }));
@@ -73,6 +78,43 @@ function SolarCard({ baseline, after }: { baseline: RunResult; after: RunResult 
     </Card>
   );
 }
+
+function AppendixGCard({ comparison }: { comparison: Comparison }) {
+  const a = comparison.appendix_g;
+  if (!a) return null;
+  return (
+    <Card>
+      <h3 className="mb-1 font-semibold text-ink">LEED PCI anchor</h3>
+      <p className="mb-4 text-xs text-ink/50">
+        ASHRAE 90.1-2019 Appendix G baseline (prescriptive U {a.window_u_factor.toFixed(2)} BTU/h·ft²·F,
+        SHGC {a.window_shgc.toFixed(2)} per Table G3.4)
+      </p>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="rounded-md bg-amber/10 px-3 py-2.5">
+          <div className="text-2xl font-bold text-ink">
+            {a.pct_savings_vs_code_baseline.toFixed(1)}%
+          </div>
+          <div className="text-xs font-semibold uppercase tracking-wide text-ink/60">
+            Total electricity vs Appendix G
+          </div>
+        </div>
+        <div className="rounded-md bg-amber/10 px-3 py-2.5">
+          <div className="text-2xl font-bold text-ink">
+            {a.cooling_pct_savings_vs_code_baseline.toFixed(1)}%
+          </div>
+          <div className="text-xs font-semibold uppercase tracking-wide text-ink/60">
+            Cooling electricity vs Appendix G
+          </div>
+        </div>
+      </div>
+      <p className="mt-3 text-xs text-ink/50">
+        These percentages anchor LEED EAc credit calculations. The audit
+        bundle's CITATIONS.md records the exact prescriptive U/SHGC used.
+      </p>
+    </Card>
+  );
+}
+
 
 function SavingsCard({ comparison }: { comparison: Comparison }) {
   const results = comparison.films;
@@ -218,14 +260,20 @@ export function ResultsDashboard({
   const recRun =
     comparison.film_runs.find((r) => r.scenario_label === rec?.scenario_label) ??
     comparison.film_runs[0];
-  const showPreliminary =
-    comparison.engine_mode !== 'energyplus' ||
-    (comparison.warnings && comparison.warnings.length > 0);
+  const sanityCount = dataSanityIssues(comparison).length;
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-lg font-semibold text-ink">Results</h2>
+        <div className="flex items-center gap-3">
+          <h2 className="text-lg font-semibold text-ink">Results</h2>
+          <EngineModeBadge engineMode={comparison.engine_mode} />
+          {sanityCount > 0 && (
+            <span className="rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide text-red-700">
+              {sanityCount} data {sanityCount === 1 ? 'issue' : 'issues'}
+            </span>
+          )}
+        </div>
         <div className="flex gap-2">
           <Button onClick={() => window.open(reportUrl(jobId), '_blank', 'noopener')}>
             Open Branded Report
@@ -245,14 +293,7 @@ export function ResultsDashboard({
         </div>
       </div>
 
-      {showPreliminary && (
-        <div className="rounded-md border border-amber-dark/30 bg-amber/15 px-4 py-3 text-sm text-ink">
-          <span className="font-semibold text-amber-dark">Preliminary estimate.</span>{' '}
-          {comparison.warnings && comparison.warnings.length > 0
-            ? comparison.warnings[0]
-            : 'These results were not produced by EnergyPlus and are not valid for bids.'}
-        </div>
-      )}
+      <WarningsList comparison={comparison} />
 
       {rec ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -302,6 +343,8 @@ export function ResultsDashboard({
         <SavingsCard comparison={comparison} />
         <AssumptionsCard comparison={comparison} />
       </div>
+
+      {comparison.appendix_g && <AppendixGCard comparison={comparison} />}
 
       <Card>
         <h3 className="mb-3 font-semibold text-ink">Scenario comparison</h3>

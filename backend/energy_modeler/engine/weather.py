@@ -53,10 +53,20 @@ FACE_GEOMETRY = {
 }
 
 
+# In-memory monthly-POA cache keyed by (lat, lon, tilt, azimuth) — the
+# 8-point compass doubled the per-project PVWatts API calls (was 5 faces,
+# now 9). Cache survives within a worker process; rotates only on restart.
+_POA_CACHE: dict[tuple[float, float, float, float], list[float]] = {}
+
+
 def _live_poa(lat: float, lon: float, face: str) -> list[float] | None:
     if not settings.nrel_api_key:
         return None
     tilt, azimuth = FACE_GEOMETRY[face]
+    cache_key = (round(lat, 4), round(lon, 4), tilt, azimuth)
+    cached = _POA_CACHE.get(cache_key)
+    if cached is not None:
+        return cached
     try:
         resp = httpx.get(
             PVWATTS_URL,
@@ -76,7 +86,9 @@ def _live_poa(lat: float, lon: float, face: str) -> list[float] | None:
             timeout=30,
         )
         resp.raise_for_status()
-        return resp.json()["outputs"]["poa_monthly"]
+        poa = resp.json()["outputs"]["poa_monthly"]
+        _POA_CACHE[cache_key] = poa
+        return poa
     except (httpx.HTTPError, KeyError, ValueError):
         return None
 

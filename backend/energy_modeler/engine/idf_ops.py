@@ -30,6 +30,20 @@ _COOLING_COP_FIELDS = (
 _HEATING_COIL_CLASSES = ("COIL:HEATING:DX:SINGLESPEED", "COIL:HEATING:DX:MULTISPEED")
 _HEATING_COP_FIELDS = ("Gross_Rated_Heating_COP", "Rated_COP", "Speed_1_Gross_Rated_Heating_COP")
 
+# Supply / return fan classes the kW/CFM rescaler touches.
+_FAN_CLASSES = (
+    "FAN:VARIABLEVOLUME",
+    "FAN:CONSTANTVOLUME",
+    "FAN:ONOFF",
+    "FAN:SYSTEMMODEL",
+)
+# 1 CFM in m3/s.
+_CFM_TO_M3S = 0.000471947
+
+
+def _f_to_c(temp_f: float) -> float:
+    return (temp_f - 32.0) * 5.0 / 9.0
+
 
 def _set_first_present(obj: Any, fields: tuple[str, ...], value: float) -> bool:
     for f in fields:
@@ -55,6 +69,69 @@ def set_heating_cop(idf: Any, cop: float) -> int:
     for cls in _HEATING_COIL_CLASSES:
         for coil in idf.idfobjects.get(cls, []):
             if _set_first_present(coil, _HEATING_COP_FIELDS, cop):
+                n += 1
+    return n
+
+
+def set_economizer_high_limit_f(idf: Any, high_limit_f: float) -> int:
+    """Enable a fixed-dry-bulb economizer with the supplied high-limit
+    temperature on every Controller:OutdoorAir. EnergyPlus stores the limit
+    in degrees C; the user faces F (the building-engineer-friendly unit).
+
+    No-op when high_limit_f is None / 0 / negative. Returns the number of
+    controllers touched. Many DOE prototypes ship NoEconomizer (the 90.1
+    minimum-compliant default) — flipping this on is one of the cheapest
+    cooling-savings levers and a common as-built override."""
+    if not high_limit_f or high_limit_f <= 0:
+        return 0
+    high_limit_c = round(_f_to_c(high_limit_f), 2)
+    n = 0
+    for ctrl in idf.idfobjects.get("CONTROLLER:OUTDOORAIR", []):
+        existing = (getattr(ctrl, "Economizer_Control_Type", "") or "").strip()
+        # Don't downgrade richer schemes (enthalpy / differential dry-bulb);
+        # only enable when the prototype was "NoEconomizer".
+        if existing.lower() in ("", "noeconomizer"):
+            ctrl.Economizer_Control_Type = "FixedDryBulb"
+        if hasattr(ctrl, "Economizer_Maximum_Limit_DryBulb_Temperature"):
+            ctrl.Economizer_Maximum_Limit_DryBulb_Temperature = high_limit_c
+            n += 1
+        elif hasattr(ctrl, "Economizer_Maximum_Limit_Dry_Bulb_Temperature"):
+            ctrl.Economizer_Maximum_Limit_Dry_Bulb_Temperature = high_limit_c
+            n += 1
+    return n
+
+
+def set_fan_kw_per_cfm(idf: Any, kw_per_cfm: float) -> int:
+    """Rescale every Fan:* object so its electrical power per CFM matches the
+    target. Preserves Fan_Total_Efficiency by adjusting Pressure_Rise:
+
+        W_per_m3s = Pressure_Rise / Fan_Total_Efficiency
+        kW_per_CFM = W_per_m3s * 0.000471947 / 1000
+    -> Pressure_Rise = kW_per_CFM * 1000 / 0.000471947 * Fan_Total_Efficiency
+
+    Returns the number of fans touched. No-op when kw_per_cfm is None/<=0.
+    """
+    if not kw_per_cfm or kw_per_cfm <= 0:
+        return 0
+    target_w_per_m3s = (kw_per_cfm * 1000.0) / _CFM_TO_M3S
+    n = 0
+    for cls in _FAN_CLASSES:
+        for fan in idf.idfobjects.get(cls, []):
+            eff_raw = (
+                getattr(fan, "Fan_Total_Efficiency", None)
+                or getattr(fan, "Motor_Efficiency", None)
+                or 0.6
+            )
+            try:
+                eff = float(eff_raw) if eff_raw not in (None, "", "Autosize") else 0.6
+            except (TypeError, ValueError):
+                eff = 0.6
+            new_pressure_rise = round(target_w_per_m3s * eff, 1)
+            if hasattr(fan, "Pressure_Rise"):
+                fan.Pressure_Rise = new_pressure_rise
+                n += 1
+            elif hasattr(fan, "Design_Pressure_Rise"):  # Fan:SystemModel
+                fan.Design_Pressure_Rise = new_pressure_rise
                 n += 1
     return n
 
@@ -125,10 +202,13 @@ _OUTPUT_METERS = (
     "Fans:Electricity",
     "InteriorLights:Electricity",
 )
+# Energy (J) variants — eplusout.csv aggregates monthly to give a real
+# accumulated quantity. The Rate variant (W) returns mean power, which the
+# parser would have to multiply by hours-per-month, so we ask for Energy.
 _OUTPUT_VARIABLES = (
     "Surface Window Heat Gain Energy",
     "Surface Window Heat Loss Energy",
-    "Surface Window Transmitted Solar Radiation Rate",
+    "Surface Window Transmitted Solar Radiation Energy",
 )
 
 
@@ -142,3 +222,109 @@ def add_standard_outputs(idf: Any) -> None:
         idf.newidfobject(
             "OUTPUT:VARIABLE", Key_Value="*", Variable_Name=var, Reporting_Frequency="Monthly"
         )
+    quiet_diagnostics(idf)
+
+
+# Loud diagnostics on the DOE prototypes — turning them off cuts eplusout.err
+# from ~15M lines to a few hundred without affecting physics. The opt-in
+# values we set are:
+#   DoNotMirrorDetachedShading   – stops the per-timestep shading-tessellation
+#                                  spam ("Shading element duplicates an earlier..."),
+#                                  the loudest source in the MediumOffice run.
+#   ReportDuringHVACSizingSimulation – left OFF (it inflates the warmup log).
+_QUIET_DIAGNOSTICS_KEYS = ("DoNotMirrorDetachedShading",)
+
+
+def add_daylighting_controls(
+    idf: Any, illuminance_setpoint_lux: float = 500.0
+) -> int:
+    """Add SplitFlux Daylighting:Controls to every zone that has a window but
+    no existing daylighting object. Without controls, a low-VT film's lighting
+    penalty (more artificial light needed because the film cut visible
+    transmittance) goes unmodeled — savings are overstated.
+
+    Reference point: zone origin + (1.5 m, 1.5 m, 0.76 m). This is a generic
+    interior workplane position; not as precise as a zone-centroid placement
+    but good enough for the "daylighting is on" signal. Setpoint defaults to
+    500 lux (office task lighting).
+
+    Returns the number of zones touched. Defensive: skips zones we can't
+    confidently place a reference point in, and never crashes on shape mismatch.
+    """
+    # Find zones that own at least one exterior window via their parent surface.
+    zones_with_windows: set[str] = set()
+    parent_to_zone: dict[str, str] = {}
+    for surf in idf.idfobjects.get("BUILDINGSURFACE:DETAILED", []):
+        zone_name = getattr(surf, "Zone_Name", "") or ""
+        if zone_name:
+            parent_to_zone[surf.Name] = zone_name
+    for fen in idf.idfobjects.get("FENESTRATIONSURFACE:DETAILED", []):
+        if getattr(fen, "Surface_Type", "Window") not in ("Window", "GlassDoor"):
+            continue
+        parent = getattr(fen, "Building_Surface_Name", None)
+        if parent and parent in parent_to_zone:
+            zones_with_windows.add(parent_to_zone[parent])
+
+    existing = {
+        getattr(d, "Zone_or_Space_Name", "") or getattr(d, "Zone_Name", "")
+        for d in idf.idfobjects.get("DAYLIGHTING:CONTROLS", [])
+    }
+
+    n = 0
+    for zone_name in zones_with_windows:
+        if zone_name in existing:
+            continue
+        zone_obj = next(
+            (z for z in idf.idfobjects.get("ZONE", []) if z.Name == zone_name),
+            None,
+        )
+        if zone_obj is None:
+            continue
+        ox = float(getattr(zone_obj, "X_Origin", 0) or 0)
+        oy = float(getattr(zone_obj, "Y_Origin", 0) or 0)
+        oz = float(getattr(zone_obj, "Z_Origin", 0) or 0)
+        rp_name = f"{zone_name}_DaylitRP"
+        try:
+            idf.newidfobject(
+                "DAYLIGHTING:REFERENCEPOINT",
+                Name=rp_name,
+                Zone_or_Space_Name=zone_name,
+                XCoordinate_of_Reference_Point=ox + 1.5,
+                YCoordinate_of_Reference_Point=oy + 1.5,
+                ZCoordinate_of_Reference_Point=oz + 0.76,
+            )
+            ctrl = idf.newidfobject(
+                "DAYLIGHTING:CONTROLS",
+                Name=f"{zone_name}_Daylit",
+                Zone_or_Space_Name=zone_name,
+                Daylighting_Method="SplitFlux",
+                Lighting_Control_Type="Continuous",
+            )
+            # eppy maps "Daylighting Reference Point 1 Name" -> Daylighting_Reference_Point_1_Name etc.
+            for field, value in (
+                ("Daylighting_Reference_Point_1_Name", rp_name),
+                ("Fraction_of_Zone_Controlled_by_Reference_Point_1", 1.0),
+                ("Illuminance_Setpoint_at_Reference_Point_1", illuminance_setpoint_lux),
+            ):
+                if hasattr(ctrl, field):
+                    setattr(ctrl, field, value)
+            n += 1
+        except Exception:  # noqa: BLE001 - IDD field mismatch shouldn't crash the run
+            continue
+    return n
+
+
+def quiet_diagnostics(idf: Any) -> None:
+    """Replace any existing Output:Diagnostics with a quiet set. The DOE
+    prototype defaults to DisplayExtraWarnings, which is what blows the err
+    file up to 10+M lines per run — useful when authoring the prototype,
+    pure noise on a film comparison."""
+    # eppy's Output:Diagnostics has Key_1, Key_2, ... fields; drop any prior
+    # request and re-add the quiet keys.
+    for existing in list(idf.idfobjects.get("OUTPUT:DIAGNOSTICS", [])):
+        idf.removeidfobject(existing)
+    diag = idf.newidfobject("OUTPUT:DIAGNOSTICS")
+    for i, key in enumerate(_QUIET_DIAGNOSTICS_KEYS, start=1):
+        field = f"Key_{i}"
+        if hasattr(diag, field):
+            setattr(diag, field, key)

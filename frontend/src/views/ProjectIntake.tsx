@@ -45,6 +45,7 @@ export function ProjectIntake({
   const [utility, setUtility] = useState<Utility | null>(null);
   const [rate, setRate] = useState('');
   const [rateEdited, setRateEdited] = useState(false);
+  const [gasRate, setGasRate] = useState('');
   const [zipLoading, setZipLoading] = useState(false);
   const [zipError, setZipError] = useState<string | null>(null);
 
@@ -59,7 +60,9 @@ export function ProjectIntake({
       setAdv((p) => ({ ...p, [k]: e.target.value }));
 
   const ADV_NUM_FIELDS = [
-    'hvac_cooling_cop', 'hvac_heating_cop', 'wall_area_sf', 'wall_u_factor',
+    'hvac_cooling_cop', 'hvac_heating_cop', 'hvac_fan_kw_per_cfm',
+    'hvac_economizer_high_limit_f',
+    'wall_area_sf', 'wall_u_factor',
     'wall_absorptance', 'roof_area_sf', 'roof_u_factor', 'roof_absorptance',
     'operating_hours_per_week', 'num_floors', 'floor_to_floor_ft',
   ];
@@ -147,6 +150,7 @@ export function ProjectIntake({
         climate_zone: climate?.climate_zone ?? null,
         egrid_subregion: egrid?.subregion ?? null,
         utility_rate_usd_kwh: rateEdited && rate ? Number(rate) : null,
+        gas_rate_usd_therm: gasRate ? Number(gasRate) : null,
         ...advPayload(),
       });
       onCreated(project);
@@ -286,6 +290,20 @@ export function ProjectIntake({
                   <p className="mt-1 text-xs text-ink/50">{utility.source}</p>
                 )}
               </div>
+              <div>
+                <Label>Gas rate ($/therm, optional)</Label>
+                <TextInput
+                  type="number"
+                  step="0.01"
+                  value={gasRate}
+                  onChange={(e) => setGasRate(e.target.value)}
+                  placeholder="e.g. 1.20"
+                />
+                <p className="mt-1 text-xs text-ink/50">
+                  Required for accurate dollar savings on gas-heated buildings;
+                  leave blank for all-electric projects.
+                </p>
+              </div>
             </div>
           )}
         </Card>
@@ -313,6 +331,8 @@ export function ProjectIntake({
                 <div className="grid gap-4 sm:grid-cols-3">
                   {advNum('hvac_cooling_cop', 'Cooling COP', 'proto default')}
                   {advNum('hvac_heating_cop', 'Heating COP', '3.0')}
+                  {advNum('hvac_fan_kw_per_cfm', 'Fan power (kW/CFM)', '0.0005', '0.0001')}
+                  {advNum('hvac_economizer_high_limit_f', 'Economizer high-limit (°F)', '70')}
                   <div>
                     <Label>System type</Label>
                     <Select value={adv.hvac_system_type ?? ''} onChange={setAdvField('hvac_system_type')}>

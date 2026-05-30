@@ -13,6 +13,10 @@ class EngineFace:
     orientation: str
     area_sqft: float
     base_glazing_id: str
+    # Optional surface tilt in degrees (0 = horizontal/skylight, 90 = vertical).
+    # 3M Prestige is rated specifically for sloped glazing; capturing the angle
+    # lets the audit bundle name the geometry the run assumed.
+    tilt_deg: float | None = None
 
 
 @dataclass
@@ -30,6 +34,17 @@ class EngineOptions:
     include_appendix_g_baseline: bool = False
     include_demand_charge: bool = False
     demand_charge_usd_per_kw: float = 0.0
+    # Prototype-to-project rescale basis: 'floor' (matches EFILM, default) or
+    # 'glazing' (project glazing area / prototype glazing area — more physical
+    # for window-film savings since the delta is glazing-area-driven).
+    # parser_bridge stamps BOTH factors onto the run's warnings either way.
+    scaling_basis: str = "floor"
+    # Opt-in: add SplitFlux Daylighting:Controls to every zone that has a
+    # window but no existing daylighting object. Models the lighting penalty a
+    # low-VT film causes (more artificial light needed); without this, savings
+    # are slightly overstated on buildings whose prototype lacks controls.
+    # Defaults off so existing runs are byte-identical.
+    add_daylighting_controls: bool = False
 
 
 @dataclass
@@ -56,6 +71,17 @@ class EngineProject:
     hvac_cooling_cop: float | None = None
     hvac_heating_cop: float | None = None
     hvac_system_type: str | None = None
+    # Supply-fan electrical power per CFM (kW/CFM). Reducing solar load via
+    # film also cuts fan work — modeling this correctly matters for the
+    # cooling savings number a PE will sign off. Typical commercial DOAS / VAV
+    # ~0.0005-0.001 kW/CFM. When set, the IDF mutator adjusts each Fan:*
+    # object's Pressure_Rise to achieve the target while preserving its
+    # Fan_Total_Efficiency.
+    hvac_fan_kw_per_cfm: float | None = None
+    # Economizer high-limit dry-bulb (deg F). When set, every NoEconomizer
+    # Controller:OutdoorAir is flipped to FixedDryBulb at this temperature —
+    # one of the cheapest cooling-savings levers on commercial prototypes.
+    hvac_economizer_high_limit_f: float | None = None
     # Opaque envelope
     wall_area_sf: float | None = None
     wall_u_factor: float | None = None
@@ -76,6 +102,8 @@ BUILDING_FIELDS: tuple[str, ...] = (
     "hvac_cooling_cop",
     "hvac_heating_cop",
     "hvac_system_type",
+    "hvac_fan_kw_per_cfm",
+    "hvac_economizer_high_limit_f",
     "wall_area_sf",
     "wall_u_factor",
     "wall_absorptance",

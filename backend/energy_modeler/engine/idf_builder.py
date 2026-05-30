@@ -148,5 +148,9 @@ def build_scenario_idf(idf, base_glazing, film: FilmSpec | None, bldg, label: st
 
     idf_ops.set_cooling_cop(idf, bldg.cooling_cop)
     idf_ops.set_heating_cop(idf, bldg.heating_cop)
+    if getattr(bldg, "hvac_fan_kw_per_cfm", None):
+        idf_ops.set_fan_kw_per_cfm(idf, bldg.hvac_fan_kw_per_cfm)
+    if getattr(bldg, "hvac_economizer_high_limit_f", None):
+        idf_ops.set_economizer_high_limit_f(idf, bldg.hvac_economizer_high_limit_f)
     idf_ops.add_standard_outputs(idf)
     return idf

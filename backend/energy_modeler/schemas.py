@@ -72,12 +72,28 @@ class FilmComparison(BaseModel):
     monthly_cooling_savings_kwh: list[float] = Field(default_factory=list)  # 12 (Jan..Dec)
 
 
+class AppendixGComparison(BaseModel):
+    """The ASHRAE 90.1-2019 Appendix G baseline as a comparison anchor for the
+    project's as-built baseline. PCI-style percentages off this row are what a
+    LEED reviewer asks for. window_u_factor / window_shgc are the prescriptive
+    values from the climate-zone lookup; the rest comes from running the
+    prototype with those window properties pinned."""
+    run: RunResult
+    window_u_factor: float
+    window_shgc: float
+    pct_savings_vs_code_baseline: float
+    cooling_pct_savings_vs_code_baseline: float
+
+
 class ProjectComparison(BaseModel):
     project_id: str
     engine_mode: str
     baseline: RunResult
     films: list[FilmComparison] = Field(default_factory=list)
     film_runs: list[RunResult] = Field(default_factory=list)
+    # Optional ASHRAE 90.1-2019 Appendix G baseline run + savings vs that
+    # baseline. Populated when CalcOptions.include_appendix_g_baseline=true.
+    appendix_g: "AppendixGComparison | None" = None
     # Resolved as-built building characterization (HVAC/envelope/ops) with a
     # per-field 'user' | 'default' provenance map, for the inputs/audit display.
     building: dict | None = None

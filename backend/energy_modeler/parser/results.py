@@ -12,6 +12,7 @@ from .. import carbon, datastore, economics
 from ..engine import building
 from ..engine.inputs import EngineProject
 from ..schemas import (
+    AppendixGComparison,
     EnergyEndUses,
     FilmComparison,
     PeakDemand,
@@ -92,6 +93,8 @@ def build_comparison(
     baseline: RunResult,
     film_runs: list[RunResult],
     engine_mode: str,
+    *,
+    appendix_g_run: RunResult | None = None,
 ) -> ProjectComparison:
     rate = project.utility_rate_usd_kwh
     gas_rate = project.gas_rate_usd_therm  # $/therm; None -> gas dollars = 0
@@ -168,6 +171,38 @@ def build_comparison(
         dataclasses.asdict(building.resolve(project, proto)) if proto else None
     )
 
+    # ASHRAE 90.1-2019 Appendix G baseline anchor for LEED PCI. We compute
+    # both total + cooling-only % savings since the cooling-only number is
+    # less noisy when the prototype's lighting / equipment dominates the EUI.
+    appG: AppendixGComparison | None = None
+    if appendix_g_run is not None:
+        from ..engine.appendix_g import baseline_spec
+
+        spec = baseline_spec(
+            project.building_type, project.climate_zone,
+            int(proto.get("floors", 1) or 1) if proto else 1,
+            project.gross_floor_area_sf,
+        )
+        appG_total = appendix_g_run.annual_end_uses.total_electricity_kwh
+        appG_cool = appendix_g_run.annual_end_uses.cooling_elec_kwh
+        proj_total = baseline.annual_end_uses.total_electricity_kwh
+        proj_cool = baseline.annual_end_uses.cooling_elec_kwh
+        pct_total = (
+            round((appG_total - proj_total) / appG_total * 100.0, 2)
+            if appG_total > 0 else 0.0
+        )
+        pct_cool = (
+            round((appG_cool - proj_cool) / appG_cool * 100.0, 2)
+            if appG_cool > 0 else 0.0
+        )
+        appG = AppendixGComparison(
+            run=appendix_g_run,
+            window_u_factor=spec.window_u_factor,
+            window_shgc=spec.window_shgc,
+            pct_savings_vs_code_baseline=pct_total,
+            cooling_pct_savings_vs_code_baseline=pct_cool,
+        )
+
     warnings = list(baseline.warnings)
     return ProjectComparison(
         project_id=project.project_id,
@@ -175,6 +210,7 @@ def build_comparison(
         baseline=baseline,
         films=films,
         film_runs=film_runs,
+        appendix_g=appG,
         building=resolved_building,
         generated_at=datetime.now(timezone.utc),
         warnings=warnings,
