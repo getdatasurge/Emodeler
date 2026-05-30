@@ -107,6 +107,44 @@ export const api = {
       body: JSON.stringify(body),
     }),
 
+  importSurvey: async (
+    projectId: string,
+    file: File,
+    mode: 'replace' | 'append' = 'replace',
+  ) => {
+    // Multipart upload — can't go through request() which sets a JSON
+    // Content-Type. Hand-roll fetch with the same auth + error envelope.
+    const form = new FormData();
+    form.append('file', file);
+    const token = getAccessToken();
+    const resp = await fetch(
+      `${API_BASE}/api/projects/${projectId}/import-survey-xlsx?mode=${mode}`,
+      {
+        method: 'POST',
+        body: form,
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      },
+    );
+    const text = await resp.text();
+    let data: unknown = null;
+    if (text) {
+      try { data = JSON.parse(text); } catch { data = text; }
+    }
+    if (!resp.ok) {
+      throw new ApiError(
+        extractError(data) || `Survey import failed (${resp.status})`,
+        resp.status,
+        data,
+      );
+    }
+    return data as {
+      imported: number;
+      mode: string;
+      units: string;
+      project: Project;
+    };
+  },
+
   climateZone: (zip: string) => request<ClimateZone>(`/api/climate-zone/${zip}`),
   egrid: (zip: string) => request<Egrid>(`/api/egrid/${zip}`),
   utility: (zip: string) => request<Utility>(`/api/utility/${zip}`),
