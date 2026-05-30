@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { api } from '../api';
 import type { BaseGlazing, Project } from '../types';
 import { Button, ErrorBox, Label, Select, TextInput } from './ui';
+import { pushToast } from './Toast';
 
 // 8-point compass (the resolution surveyors record at) + H for skylights.
 const ORIENTATIONS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW', 'H'];
@@ -38,11 +39,13 @@ export function GlazingFaces({
     try {
       const res = await api.importSurvey(project.id, file, 'replace');
       onProjectUpdate(res.project);
-      setImportMsg(
-        `Imported ${res.imported} face${res.imported === 1 ? '' : 's'} from ${file.name}.`,
-      );
+      const msg = `Imported ${res.imported} face${res.imported === 1 ? '' : 's'} from ${file.name}.`;
+      setImportMsg(msg);
+      pushToast('success', msg);
     } catch (e) {
-      setError((e as Error).message);
+      const msg = (e as Error).message;
+      setError(msg);
+      pushToast('error', `Survey import failed: ${msg}`, 8000);
     } finally {
       setImporting(false);
       if (fileRef.current) fileRef.current.value = '';
@@ -70,8 +73,11 @@ export function GlazingFaces({
       });
       onProjectUpdate(updated);
       setArea('');
+      pushToast('success', `Added ${orientation} face (${area} sf).`, 3000);
     } catch (e) {
-      setError((e as Error).message);
+      const msg = (e as Error).message;
+      setError(msg);
+      pushToast('error', `Failed to add face: ${msg}`, 6000);
     } finally {
       setAdding(false);
     }

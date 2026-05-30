@@ -5,6 +5,7 @@ import { recommendedIndex } from '../recommend';
 import { Button, Card } from './ui';
 import { CompareBars, MonthlyBars } from './charts';
 import { DataSources } from './DataSources';
+import { EngineModeBadge, WarningsList, dataSanityIssues } from './Warnings';
 
 const ORIENTATION_NAMES: Record<string, string> = {
   N: 'North',
@@ -259,14 +260,20 @@ export function ResultsDashboard({
   const recRun =
     comparison.film_runs.find((r) => r.scenario_label === rec?.scenario_label) ??
     comparison.film_runs[0];
-  const showPreliminary =
-    comparison.engine_mode !== 'energyplus' ||
-    (comparison.warnings && comparison.warnings.length > 0);
+  const sanityCount = dataSanityIssues(comparison).length;
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-lg font-semibold text-ink">Results</h2>
+        <div className="flex items-center gap-3">
+          <h2 className="text-lg font-semibold text-ink">Results</h2>
+          <EngineModeBadge engineMode={comparison.engine_mode} />
+          {sanityCount > 0 && (
+            <span className="rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide text-red-700">
+              {sanityCount} data {sanityCount === 1 ? 'issue' : 'issues'}
+            </span>
+          )}
+        </div>
         <div className="flex gap-2">
           <Button onClick={() => window.open(reportUrl(jobId), '_blank', 'noopener')}>
             Open Branded Report
@@ -286,14 +293,7 @@ export function ResultsDashboard({
         </div>
       </div>
 
-      {showPreliminary && (
-        <div className="rounded-md border border-amber-dark/30 bg-amber/15 px-4 py-3 text-sm text-ink">
-          <span className="font-semibold text-amber-dark">Preliminary estimate.</span>{' '}
-          {comparison.warnings && comparison.warnings.length > 0
-            ? comparison.warnings[0]
-            : 'These results were not produced by EnergyPlus and are not valid for bids.'}
-        </div>
-      )}
+      <WarningsList comparison={comparison} />
 
       {rec ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

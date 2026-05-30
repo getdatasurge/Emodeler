@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { api } from '../api';
 import type { ProjectSummary } from '../types';
 import { Button, ErrorBox, Label, Select, Spinner, TextInput } from '../components/ui';
+import { pushToast } from '../components/Toast';
 
 // IWFA survey workbooks frequently cover a portfolio (Millstone + New Brunswick
 // + Evesham in one file). The portfolio importer splits per Building ID and
@@ -39,8 +40,14 @@ function PortfolioImportModal({
         units,
       });
       onCreated(res.projects);
+      pushToast(
+        'success',
+        `Created ${res.projects.length} project${res.projects.length === 1 ? '' : 's'} from ${file.name}.`,
+      );
     } catch (e) {
-      setError((e as Error).message);
+      const msg = (e as Error).message;
+      setError(msg);
+      pushToast('error', `Portfolio import failed: ${msg}`, 8000);
     } finally {
       setBusy(false);
     }
