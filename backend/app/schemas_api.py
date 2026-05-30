@@ -83,6 +83,7 @@ class CalcOptions(BaseModel):
     include_demand_charge: bool = False
     demand_charge_usd_per_kw: float = 0.0
     scaling_basis: str = Field(default="floor", pattern="^(floor|glazing)$")
+    add_daylighting_controls: bool = False
 
 
 class CalcRunRequest(BaseModel):

@@ -118,6 +118,7 @@ export function GlazingFaces({
                 <th className="px-3 py-2">Orientation</th>
                 <th className="px-3 py-2">Area (sf)</th>
                 <th className="px-3 py-2">Count</th>
+                <th className="px-3 py-2">Tilt°</th>
                 <th className="px-3 py-2">Base glazing</th>
               </tr>
             </thead>
@@ -129,6 +130,9 @@ export function GlazingFaces({
                   </td>
                   <td className="px-3 py-2">{f.area_sqft.toLocaleString()}</td>
                   <td className="px-3 py-2">{f.count}</td>
+                  <td className="px-3 py-2 text-ink/70">
+                    {f.tilt_deg ?? (f.orientation === 'H' ? 0 : 90)}
+                  </td>
                   <td className="px-3 py-2 text-ink/80">
                     {glazingName(f.base_glazing_id)}
                   </td>

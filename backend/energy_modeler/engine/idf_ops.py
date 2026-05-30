@@ -235,6 +235,85 @@ def add_standard_outputs(idf: Any) -> None:
 _QUIET_DIAGNOSTICS_KEYS = ("DoNotMirrorDetachedShading",)
 
 
+def add_daylighting_controls(
+    idf: Any, illuminance_setpoint_lux: float = 500.0
+) -> int:
+    """Add SplitFlux Daylighting:Controls to every zone that has a window but
+    no existing daylighting object. Without controls, a low-VT film's lighting
+    penalty (more artificial light needed because the film cut visible
+    transmittance) goes unmodeled — savings are overstated.
+
+    Reference point: zone origin + (1.5 m, 1.5 m, 0.76 m). This is a generic
+    interior workplane position; not as precise as a zone-centroid placement
+    but good enough for the "daylighting is on" signal. Setpoint defaults to
+    500 lux (office task lighting).
+
+    Returns the number of zones touched. Defensive: skips zones we can't
+    confidently place a reference point in, and never crashes on shape mismatch.
+    """
+    # Find zones that own at least one exterior window via their parent surface.
+    zones_with_windows: set[str] = set()
+    parent_to_zone: dict[str, str] = {}
+    for surf in idf.idfobjects.get("BUILDINGSURFACE:DETAILED", []):
+        zone_name = getattr(surf, "Zone_Name", "") or ""
+        if zone_name:
+            parent_to_zone[surf.Name] = zone_name
+    for fen in idf.idfobjects.get("FENESTRATIONSURFACE:DETAILED", []):
+        if getattr(fen, "Surface_Type", "Window") not in ("Window", "GlassDoor"):
+            continue
+        parent = getattr(fen, "Building_Surface_Name", None)
+        if parent and parent in parent_to_zone:
+            zones_with_windows.add(parent_to_zone[parent])
+
+    existing = {
+        getattr(d, "Zone_or_Space_Name", "") or getattr(d, "Zone_Name", "")
+        for d in idf.idfobjects.get("DAYLIGHTING:CONTROLS", [])
+    }
+
+    n = 0
+    for zone_name in zones_with_windows:
+        if zone_name in existing:
+            continue
+        zone_obj = next(
+            (z for z in idf.idfobjects.get("ZONE", []) if z.Name == zone_name),
+            None,
+        )
+        if zone_obj is None:
+            continue
+        ox = float(getattr(zone_obj, "X_Origin", 0) or 0)
+        oy = float(getattr(zone_obj, "Y_Origin", 0) or 0)
+        oz = float(getattr(zone_obj, "Z_Origin", 0) or 0)
+        rp_name = f"{zone_name}_DaylitRP"
+        try:
+            idf.newidfobject(
+                "DAYLIGHTING:REFERENCEPOINT",
+                Name=rp_name,
+                Zone_or_Space_Name=zone_name,
+                XCoordinate_of_Reference_Point=ox + 1.5,
+                YCoordinate_of_Reference_Point=oy + 1.5,
+                ZCoordinate_of_Reference_Point=oz + 0.76,
+            )
+            ctrl = idf.newidfobject(
+                "DAYLIGHTING:CONTROLS",
+                Name=f"{zone_name}_Daylit",
+                Zone_or_Space_Name=zone_name,
+                Daylighting_Method="SplitFlux",
+                Lighting_Control_Type="Continuous",
+            )
+            # eppy maps "Daylighting Reference Point 1 Name" -> Daylighting_Reference_Point_1_Name etc.
+            for field, value in (
+                ("Daylighting_Reference_Point_1_Name", rp_name),
+                ("Fraction_of_Zone_Controlled_by_Reference_Point_1", 1.0),
+                ("Illuminance_Setpoint_at_Reference_Point_1", illuminance_setpoint_lux),
+            ):
+                if hasattr(ctrl, field):
+                    setattr(ctrl, field, value)
+            n += 1
+        except Exception:  # noqa: BLE001 - IDD field mismatch shouldn't crash the run
+            continue
+    return n
+
+
 def quiet_diagnostics(idf: Any) -> None:
     """Replace any existing Output:Diagnostics with a quiet set. The DOE
     prototype defaults to DisplayExtraWarnings, which is what blows the err

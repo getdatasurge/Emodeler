@@ -39,6 +39,12 @@ class EngineOptions:
     # for window-film savings since the delta is glazing-area-driven).
     # parser_bridge stamps BOTH factors onto the run's warnings either way.
     scaling_basis: str = "floor"
+    # Opt-in: add SplitFlux Daylighting:Controls to every zone that has a
+    # window but no existing daylighting object. Models the lighting penalty a
+    # low-VT film causes (more artificial light needed); without this, savings
+    # are slightly overstated on buildings whose prototype lacks controls.
+    # Defaults off so existing runs are byte-identical.
+    add_daylighting_controls: bool = False
 
 
 @dataclass

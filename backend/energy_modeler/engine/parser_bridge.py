@@ -214,6 +214,9 @@ def run_real_pipeline(
         for label, film in scenarios:
             idf = prototype_loader.load_idf(project.building_type, project.climate_zone)
             idf_builder.build_scenario_idf(idf, base_glazing, film, bldg, label)
+            if project.options.add_daylighting_controls:
+                from . import idf_ops as _idf_ops
+                _idf_ops.add_daylighting_controls(idf)
             scen_dir = Path(tmp) / label.replace(" ", "_")
             scen_dir.mkdir(parents=True, exist_ok=True)
             idf_path = scen_dir / f"{label.replace(' ', '_')}.idf"
