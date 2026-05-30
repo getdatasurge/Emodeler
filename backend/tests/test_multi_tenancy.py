@@ -81,6 +81,39 @@ def test_other_org_cannot_see_or_mutate_anothers_project(client, override_identi
     assert client.post(f"/api/projects/{pid}/faces", json=face).status_code == 404
 
 
+def test_foreign_org_cannot_fetch_job_or_audit_bundle(client, override_identity):
+    """A job's audit bundle URL leaks via the job-poll response; a foreign
+    org must not be able to fetch the job, its results, or its audit zip."""
+    from app.db import SessionLocal
+    from app.models import CalculationJob
+
+    override_identity(Identity(user_id="acme", org_id="org-acme"))
+    pid = _seed_project(client, "Acme HQ retrofit")
+
+    # Manually create a completed job in Acme's project so we have a job to
+    # try and steal (no need to spin EnergyPlus for the auth assertion).
+    with SessionLocal() as sess:
+        job = CalculationJob(
+            project_id=pid, status="completed",
+            scenarios_total=1, scenarios_completed=1,
+            engine_mode="energyplus", comparison={"baseline": {}, "films": []},
+            audit_bundle_path="/tmp/nonexistent.zip",
+        )
+        sess.add(job)
+        sess.commit()
+        job_id = job.id
+
+    # Same org sees the job.
+    assert client.get(f"/api/jobs/{job_id}").status_code == 200
+
+    # Foreign org -> 404 (not 403) on job-poll, results, audit bundle, report.
+    override_identity(Identity(user_id="rival", org_id="org-rival"))
+    assert client.get(f"/api/jobs/{job_id}").status_code == 404
+    assert client.get(f"/api/jobs/{job_id}/results").status_code == 404
+    assert client.get(f"/api/jobs/{job_id}/audit-bundle").status_code == 404
+    assert client.get(f"/api/reports/{job_id}").status_code == 404
+
+
 def test_listing_filters_to_current_org_only(client, override_identity):
     """Two orgs, two projects; each sees only its own."""
     override_identity(Identity(user_id="a-pm", org_id="org-A"))

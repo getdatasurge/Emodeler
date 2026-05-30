@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Response
 from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 
+from ..auth import Identity, require_auth
 from ..db import get_session
 from ..models import CalculationJob, Project
 from ..report import render_report_html, render_report_pdf
@@ -14,26 +15,38 @@ from ..routers.projects import _serialize
 router = APIRouter(tags=["reports"])
 
 
-def _load(job_id: str, session: Session):
+def _load(job_id: str, session: Session, identity: Identity):
+    """Look up the completed job for the caller's org; 404 on mismatch."""
     job = session.get(CalculationJob, job_id)
     if job is None or job.status != "completed" or not job.comparison:
         raise HTTPException(status_code=404, detail={"error": "No completed analysis for report",
                             "code": "NOT_FOUND", "details": {"job_id": job_id}})
     project = session.get(Project, job.project_id)
+    if project is None or project.org_id != identity.org_id:
+        raise HTTPException(status_code=404, detail={"error": "No completed analysis for report",
+                            "code": "NOT_FOUND", "details": {"job_id": job_id}})
     return job, project
 
 
 @router.get("/api/reports/{job_id}", response_class=HTMLResponse)
-def get_report(job_id: str, session: Session = Depends(get_session)):
-    job, project = _load(job_id, session)
+def get_report(
+    job_id: str,
+    session: Session = Depends(get_session),
+    identity: Identity = Depends(require_auth),
+):
+    job, project = _load(job_id, session, identity)
     return HTMLResponse(render_report_html(_serialize(project), job.comparison))
 
 
 @router.get("/api/reports/{job_id}/pdf")
-def get_report_pdf(job_id: str, session: Session = Depends(get_session)):
+def get_report_pdf(
+    job_id: str,
+    session: Session = Depends(get_session),
+    identity: Identity = Depends(require_auth),
+):
     """Canonical server-side PDF. Degrades to 503 where the native PDF libs
     aren't installed (slim API image); the HTML report is always available."""
-    job, project = _load(job_id, session)
+    job, project = _load(job_id, session, identity)
     try:
         pdf = render_report_pdf(_serialize(project), job.comparison)
     except Exception as exc:  # noqa: BLE001 - WeasyPrint/native libs unavailable
@@ -50,8 +63,12 @@ def get_report_pdf(job_id: str, session: Session = Depends(get_session)):
 
 
 @router.post("/api/reports/{job_id}")
-def generate_report(job_id: str, session: Session = Depends(get_session)):
-    job, project = _load(job_id, session)
+def generate_report(
+    job_id: str,
+    session: Session = Depends(get_session),
+    identity: Identity = Depends(require_auth),
+):
+    job, project = _load(job_id, session, identity)
     return {
         "job_id": job_id,
         "report_url": f"/api/reports/{job_id}",

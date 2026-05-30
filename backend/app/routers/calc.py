@@ -9,6 +9,7 @@ from energy_modeler import datastore
 from energy_modeler.config import settings
 
 from .. import pipeline
+from ..auth import Identity, require_auth
 from ..db import get_session
 from ..models import CalculationJob, Project, Scenario
 from ..schemas_api import CalcRunRequest
@@ -40,9 +41,10 @@ def run_calc(
     body: CalcRunRequest,
     background: BackgroundTasks,
     session: Session = Depends(get_session),
+    identity: Identity = Depends(require_auth),
 ):
     project = session.get(Project, body.project_id)
-    if project is None:
+    if project is None or project.org_id != identity.org_id:
         raise HTTPException(status_code=404, detail={"error": "Project not found",
                             "code": "NOT_FOUND", "details": {"project_id": body.project_id}})
     if not project.faces:
