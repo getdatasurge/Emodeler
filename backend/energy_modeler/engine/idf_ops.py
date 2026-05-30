@@ -73,6 +73,48 @@ def set_window_construction(idf: Any, construction_name: str) -> int:
     return n
 
 
+# DOE prototypes embed the elevation in the window's Name (e.g.
+# 'Perimeter_bot_ZN_1_Wall_South_Window1'); we map that token back to a
+# cardinal direction so per-face base glazings can be dispatched correctly.
+_CARDINAL_TOKENS = {"S": "south", "N": "north", "E": "east", "W": "west"}
+
+
+def _cardinal_from_window_name(name: str) -> str | None:
+    name_l = (name or "").lower()
+    for cardinal, token in _CARDINAL_TOKENS.items():
+        if token in name_l:
+            return cardinal
+    return None
+
+
+def set_window_construction_by_orientation(
+    idf: Any, constructions_by_cardinal: dict[str, str]
+) -> int:
+    """Assign each exterior window the construction matching its cardinal
+    elevation (parsed from the window's Name in DOE prototypes). Windows whose
+    elevation can't be derived fall back to the 'DEFAULT' key. Returns the
+    number of fenestration surfaces updated.
+
+    Lets a project with mixed glass (e.g. tinted south, clear elsewhere)
+    survive the prototype-window-construction swap instead of being collapsed
+    to face[0]'s glazing.
+    """
+    default = constructions_by_cardinal.get("DEFAULT")
+    n = 0
+    for collection in ("FENESTRATIONSURFACE:DETAILED", "WINDOW"):
+        for surf in idf.idfobjects.get(collection, []):
+            if collection == "FENESTRATIONSURFACE:DETAILED" and getattr(
+                surf, "Surface_Type", "Window"
+            ) not in ("Window", "GlassDoor"):
+                continue
+            cardinal = _cardinal_from_window_name(getattr(surf, "Name", ""))
+            con = constructions_by_cardinal.get(cardinal) if cardinal else default
+            if con:
+                surf.Construction_Name = con
+                n += 1
+    return n
+
+
 # Output:Meter names the parser (Ch 6) needs; Heating:Gas was renamed
 # Heating:NaturalGas in EnergyPlus 9.x — request both, harmless if one is absent.
 _OUTPUT_METERS = (

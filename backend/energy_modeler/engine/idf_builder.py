@@ -111,16 +111,41 @@ def build_idfs(project: EngineProject, workdir: Path) -> list[Path]:
     return paths
 
 
-def build_scenario_idf(idf, base_glazing: dict, film: FilmSpec | None, bldg, label: str):
+def build_scenario_idf(idf, base_glazing, film: FilmSpec | None, bldg, label: str):
     """Mutate a loaded DOE-prototype eppy IDF into a runnable scenario IDF
     (spec Ch 5.2): swap the glazing construction (film), pin the as-built HVAC
     COP (retrofit rule — never resized between baseline and film), and add the
-    output objects the parser needs. Returns the IDF. Operates on a real
-    prototype loaded by prototype_loader; structurally validated in tests."""
+    output objects the parser needs. Returns the IDF.
+
+    `base_glazing` accepts two shapes:
+      - a single base-glazing record (dict of optical scalars) — applied to
+        every window (the common case when as-built glazing is uniform).
+      - a per-cardinal mapping ``{'N': bg, 'E': bg, 'S': bg, 'W': bg,
+        'DEFAULT': bg}`` — one construction is built per direction and each
+        prototype window is dispatched by its elevation token (preserves
+        mixed-glass buildings instead of collapsing to face[0]'s glazing).
+    """
     from . import glazing, idf_ops
 
-    con = glazing.build_film_construction(idf, f"{label}_glazing", base_glazing, film)
-    idf_ops.set_window_construction(idf, con)
+    cardinal_keys = {"N", "NE", "E", "SE", "S", "SW", "W", "NW", "H", "DEFAULT"}
+    is_per_cardinal = (
+        isinstance(base_glazing, dict)
+        and bool(base_glazing)
+        and all(isinstance(v, dict) for v in base_glazing.values())
+        and all(k in cardinal_keys for k in base_glazing.keys())
+    )
+
+    if is_per_cardinal:
+        constructions: dict[str, str] = {}
+        for cardinal, bg in base_glazing.items():
+            constructions[cardinal] = glazing.build_film_construction(
+                idf, f"{label}_glazing_{cardinal}", bg, film
+            )
+        idf_ops.set_window_construction_by_orientation(idf, constructions)
+    else:
+        con = glazing.build_film_construction(idf, f"{label}_glazing", base_glazing, film)
+        idf_ops.set_window_construction(idf, con)
+
     idf_ops.set_cooling_cop(idf, bldg.cooling_cop)
     idf_ops.set_heating_cop(idf, bldg.heating_cop)
     idf_ops.add_standard_outputs(idf)
