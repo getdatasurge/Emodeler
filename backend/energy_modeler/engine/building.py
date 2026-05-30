@@ -92,6 +92,9 @@ class ResolvedBuilding:
     cooling_cop: float
     heating_cop: float
     hvac_system_type: str
+    # Optional fan-power override (kW/CFM). None -> the prototype's Pressure_Rise
+    # stands; otherwise idf_ops.set_fan_kw_per_cfm rescales each Fan:* object.
+    hvac_fan_kw_per_cfm: float | None
     num_floors: int
     floor_to_floor_ft: float
     wall_area_sf: float
@@ -140,6 +143,11 @@ def resolve(project, proto: dict) -> ResolvedBuilding:
         cooling_cop=float(_pick(project.hvac_cooling_cop, float(proto.get("cop", 3.4)), "cooling_cop", src)),
         heating_cop=float(_pick(project.hvac_heating_cop, 3.0, "heating_cop", src)),
         hvac_system_type=str(_pick(project.hvac_system_type, "packaged_dx", "hvac_system_type", src)),
+        hvac_fan_kw_per_cfm=(
+            float(project.hvac_fan_kw_per_cfm)
+            if project.hvac_fan_kw_per_cfm is not None
+            else None
+        ),
         num_floors=floors,
         floor_to_floor_ft=f2f,
         wall_area_sf=float(_pick(project.wall_area_sf, opaque_wall_default, "wall_area_sf", src)),

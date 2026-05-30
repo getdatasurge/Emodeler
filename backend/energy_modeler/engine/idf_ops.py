@@ -30,6 +30,16 @@ _COOLING_COP_FIELDS = (
 _HEATING_COIL_CLASSES = ("COIL:HEATING:DX:SINGLESPEED", "COIL:HEATING:DX:MULTISPEED")
 _HEATING_COP_FIELDS = ("Gross_Rated_Heating_COP", "Rated_COP", "Speed_1_Gross_Rated_Heating_COP")
 
+# Supply / return fan classes the kW/CFM rescaler touches.
+_FAN_CLASSES = (
+    "FAN:VARIABLEVOLUME",
+    "FAN:CONSTANTVOLUME",
+    "FAN:ONOFF",
+    "FAN:SYSTEMMODEL",
+)
+# 1 CFM in m3/s.
+_CFM_TO_M3S = 0.000471947
+
 
 def _set_first_present(obj: Any, fields: tuple[str, ...], value: float) -> bool:
     for f in fields:
@@ -55,6 +65,41 @@ def set_heating_cop(idf: Any, cop: float) -> int:
     for cls in _HEATING_COIL_CLASSES:
         for coil in idf.idfobjects.get(cls, []):
             if _set_first_present(coil, _HEATING_COP_FIELDS, cop):
+                n += 1
+    return n
+
+
+def set_fan_kw_per_cfm(idf: Any, kw_per_cfm: float) -> int:
+    """Rescale every Fan:* object so its electrical power per CFM matches the
+    target. Preserves Fan_Total_Efficiency by adjusting Pressure_Rise:
+
+        W_per_m3s = Pressure_Rise / Fan_Total_Efficiency
+        kW_per_CFM = W_per_m3s * 0.000471947 / 1000
+    -> Pressure_Rise = kW_per_CFM * 1000 / 0.000471947 * Fan_Total_Efficiency
+
+    Returns the number of fans touched. No-op when kw_per_cfm is None/<=0.
+    """
+    if not kw_per_cfm or kw_per_cfm <= 0:
+        return 0
+    target_w_per_m3s = (kw_per_cfm * 1000.0) / _CFM_TO_M3S
+    n = 0
+    for cls in _FAN_CLASSES:
+        for fan in idf.idfobjects.get(cls, []):
+            eff_raw = (
+                getattr(fan, "Fan_Total_Efficiency", None)
+                or getattr(fan, "Motor_Efficiency", None)
+                or 0.6
+            )
+            try:
+                eff = float(eff_raw) if eff_raw not in (None, "", "Autosize") else 0.6
+            except (TypeError, ValueError):
+                eff = 0.6
+            new_pressure_rise = round(target_w_per_m3s * eff, 1)
+            if hasattr(fan, "Pressure_Rise"):
+                fan.Pressure_Rise = new_pressure_rise
+                n += 1
+            elif hasattr(fan, "Design_Pressure_Rise"):  # Fan:SystemModel
+                fan.Design_Pressure_Rise = new_pressure_rise
                 n += 1
     return n
 

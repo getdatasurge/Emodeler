@@ -59,6 +59,7 @@ class Project(Base):
     hvac_cooling_cop: Mapped[float | None] = mapped_column(Float)
     hvac_heating_cop: Mapped[float | None] = mapped_column(Float)
     hvac_system_type: Mapped[str | None] = mapped_column(String)
+    hvac_fan_kw_per_cfm: Mapped[float | None] = mapped_column(Float)
     wall_area_sf: Mapped[float | None] = mapped_column(Float)
     wall_u_factor: Mapped[float | None] = mapped_column(Float)
     wall_absorptance: Mapped[float | None] = mapped_column(Float)

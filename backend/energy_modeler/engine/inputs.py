@@ -61,6 +61,13 @@ class EngineProject:
     hvac_cooling_cop: float | None = None
     hvac_heating_cop: float | None = None
     hvac_system_type: str | None = None
+    # Supply-fan electrical power per CFM (kW/CFM). Reducing solar load via
+    # film also cuts fan work — modeling this correctly matters for the
+    # cooling savings number a PE will sign off. Typical commercial DOAS / VAV
+    # ~0.0005-0.001 kW/CFM. When set, the IDF mutator adjusts each Fan:*
+    # object's Pressure_Rise to achieve the target while preserving its
+    # Fan_Total_Efficiency.
+    hvac_fan_kw_per_cfm: float | None = None
     # Opaque envelope
     wall_area_sf: float | None = None
     wall_u_factor: float | None = None
@@ -81,6 +88,7 @@ BUILDING_FIELDS: tuple[str, ...] = (
     "hvac_cooling_cop",
     "hvac_heating_cop",
     "hvac_system_type",
+    "hvac_fan_kw_per_cfm",
     "wall_area_sf",
     "wall_u_factor",
     "wall_absorptance",

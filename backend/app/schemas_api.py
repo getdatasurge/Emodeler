@@ -25,6 +25,9 @@ class BuildingInputs(BaseModel):
     hvac_cooling_cop: float | None = Field(default=None, gt=0, le=10)
     hvac_heating_cop: float | None = Field(default=None, gt=0, le=10)
     hvac_system_type: str | None = None
+    # Supply-fan electrical power per CFM (kW/CFM). Optional; when set, the
+    # IDF mutator scales each Fan:* object's Pressure_Rise to hit the target.
+    hvac_fan_kw_per_cfm: float | None = Field(default=None, gt=0, le=0.01)
     wall_area_sf: float | None = Field(default=None, ge=0)
     wall_u_factor: float | None = Field(default=None, gt=0, le=2)
     wall_absorptance: float | None = Field(default=None, ge=0, le=1)
