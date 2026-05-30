@@ -82,7 +82,7 @@ class CalcOptions(BaseModel):
     include_appendix_g_baseline: bool = False
     include_demand_charge: bool = False
     demand_charge_usd_per_kw: float = 0.0
-    scaling_basis: str = Field(default="floor", pattern="^(floor|glazing)$")
+    scaling_basis: str = Field(default="hybrid", pattern="^(hybrid|floor|glazing)$")
     add_daylighting_controls: bool = False
 
 
