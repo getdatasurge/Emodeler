@@ -120,6 +120,35 @@ def test_set_economizer_preserves_richer_schemes():
     assert abs(ctrl.Economizer_Maximum_Limit_DryBulb_Temperature - 23.89) < 0.05
 
 
+def test_quiet_diagnostics_replaces_existing_output_diagnostics():
+    """A DOE prototype that ships Output:Diagnostics with DisplayExtraWarnings
+    is the main source of the 10M-line eplusout.err. quiet_diagnostics swaps
+    that for our DoNotMirrorDetachedShading set."""
+    prior = types.SimpleNamespace(Key_1="DisplayExtraWarnings", Key_2="")
+    removed: list = []
+    new_objects: list = []
+
+    class FakeIdf:
+        idfobjects = {"OUTPUT:DIAGNOSTICS": [prior]}
+
+        def removeidfobject(self, obj):
+            removed.append(obj)
+            self.idfobjects["OUTPUT:DIAGNOSTICS"].remove(obj)
+
+        def newidfobject(self, kind, **fields):
+            assert kind == "OUTPUT:DIAGNOSTICS"
+            obj = types.SimpleNamespace(Key_1="", Key_2="", **fields)
+            self.idfobjects.setdefault("OUTPUT:DIAGNOSTICS", []).append(obj)
+            new_objects.append(obj)
+            return obj
+
+    idf = FakeIdf()
+    idf_ops.quiet_diagnostics(idf)
+    assert prior in removed  # the loud one is gone
+    assert len(new_objects) == 1  # exactly one quiet diagnostics object added
+    assert new_objects[0].Key_1 == "DoNotMirrorDetachedShading"
+
+
 def test_set_economizer_no_op_on_missing_or_invalid_value():
     ctrl = types.SimpleNamespace(
         Economizer_Control_Type="NoEconomizer",

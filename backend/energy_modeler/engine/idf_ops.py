@@ -222,3 +222,30 @@ def add_standard_outputs(idf: Any) -> None:
         idf.newidfobject(
             "OUTPUT:VARIABLE", Key_Value="*", Variable_Name=var, Reporting_Frequency="Monthly"
         )
+    quiet_diagnostics(idf)
+
+
+# Loud diagnostics on the DOE prototypes — turning them off cuts eplusout.err
+# from ~15M lines to a few hundred without affecting physics. The opt-in
+# values we set are:
+#   DoNotMirrorDetachedShading   – stops the per-timestep shading-tessellation
+#                                  spam ("Shading element duplicates an earlier..."),
+#                                  the loudest source in the MediumOffice run.
+#   ReportDuringHVACSizingSimulation – left OFF (it inflates the warmup log).
+_QUIET_DIAGNOSTICS_KEYS = ("DoNotMirrorDetachedShading",)
+
+
+def quiet_diagnostics(idf: Any) -> None:
+    """Replace any existing Output:Diagnostics with a quiet set. The DOE
+    prototype defaults to DisplayExtraWarnings, which is what blows the err
+    file up to 10+M lines per run — useful when authoring the prototype,
+    pure noise on a film comparison."""
+    # eppy's Output:Diagnostics has Key_1, Key_2, ... fields; drop any prior
+    # request and re-add the quiet keys.
+    for existing in list(idf.idfobjects.get("OUTPUT:DIAGNOSTICS", [])):
+        idf.removeidfobject(existing)
+    diag = idf.newidfobject("OUTPUT:DIAGNOSTICS")
+    for i, key in enumerate(_QUIET_DIAGNOSTICS_KEYS, start=1):
+        field = f"Key_{i}"
+        if hasattr(diag, field):
+            setattr(diag, field, key)
