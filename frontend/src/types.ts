@@ -178,6 +178,7 @@ export interface CalcOptions {
   utility_escalation: number;
   include_demand_charge?: boolean;
   demand_charge_usd_per_kw?: number;
+  scaling_basis?: 'floor' | 'glazing';
 }
 
 export interface CalcRunRequest {

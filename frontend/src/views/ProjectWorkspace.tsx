@@ -7,7 +7,7 @@ import type {
   Job,
   Project,
 } from '../types';
-import { Button, Card, ErrorBox, Label, SectionTitle, Spinner, TextInput } from '../components/ui';
+import { Button, Card, ErrorBox, Label, SectionTitle, Select, Spinner, TextInput } from '../components/ui';
 import { GlazingFaces } from '../components/GlazingFaces';
 import { FilmCandidates } from '../components/FilmCandidates';
 import type { CandidateDraft } from '../components/FilmCandidates';
@@ -40,6 +40,7 @@ export function ProjectWorkspace({
   const [runError, setRunError] = useState<string | null>(null);
   const [result, setResult] = useState<{ comparison: Comparison; jobId: string } | null>(null);
   const [demandCharge, setDemandCharge] = useState('');
+  const [scalingBasis, setScalingBasis] = useState<'floor' | 'glazing'>('floor');
   const pollRef = useRef<number | null>(null);
 
   // Initial load of project + catalogs.
@@ -149,6 +150,7 @@ export function ProjectWorkspace({
           utility_escalation: 0.025,
           include_demand_charge: Number(demandCharge) > 0,
           demand_charge_usd_per_kw: Number(demandCharge) || 0,
+          scaling_basis: scalingBasis,
         },
       });
       startPolling(resp.job_id);
@@ -233,15 +235,30 @@ export function ProjectWorkspace({
               <ErrorBox message={`Analysis failed: ${run.message}`} />
             </div>
           )}
-          <div className="mb-4 max-w-xs">
-            <Label>Utility demand charge ($/kW·mo, optional)</Label>
-            <TextInput
-              type="number"
-              step="0.01"
-              value={demandCharge}
-              onChange={(e) => setDemandCharge(e.target.value)}
-              placeholder="e.g. 15.00 — adds demand savings to the result"
-            />
+          <div className="mb-4 grid max-w-xl gap-4 sm:grid-cols-2">
+            <div>
+              <Label>Utility demand charge ($/kW·mo, optional)</Label>
+              <TextInput
+                type="number"
+                step="0.01"
+                value={demandCharge}
+                onChange={(e) => setDemandCharge(e.target.value)}
+                placeholder="e.g. 15.00 — adds demand savings to the result"
+              />
+            </div>
+            <div>
+              <Label>Scale prototype by</Label>
+              <Select
+                value={scalingBasis}
+                onChange={(e) => setScalingBasis(e.target.value as 'floor' | 'glazing')}
+              >
+                <option value="floor">Floor area (EFILM convention, default)</option>
+                <option value="glazing">Glazing area (more physical for film)</option>
+              </Select>
+              <p className="mt-1 text-xs text-ink/50">
+                The audit bundle stamps both factors regardless of which is applied.
+              </p>
+            </div>
           </div>
           <div className="flex items-center gap-4">
             <Button onClick={handleRun} disabled={isRunning}>
