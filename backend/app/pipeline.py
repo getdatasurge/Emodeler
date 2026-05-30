@@ -215,7 +215,7 @@ def run_job(job_id: str) -> None:
             include_appendix_g_baseline=raw_opts.get("include_appendix_g_baseline", False),
             include_demand_charge=raw_opts.get("include_demand_charge", False),
             demand_charge_usd_per_kw=raw_opts.get("demand_charge_usd_per_kw", 0.0),
-            scaling_basis=raw_opts.get("scaling_basis", "floor"),
+            scaling_basis=raw_opts.get("scaling_basis", "hybrid"),
             add_daylighting_controls=raw_opts.get("add_daylighting_controls", False),
         )
         engine_project = to_engine_project(project, opts)

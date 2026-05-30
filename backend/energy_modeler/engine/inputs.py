@@ -34,11 +34,15 @@ class EngineOptions:
     include_appendix_g_baseline: bool = False
     include_demand_charge: bool = False
     demand_charge_usd_per_kw: float = 0.0
-    # Prototype-to-project rescale basis: 'floor' (matches EFILM, default) or
-    # 'glazing' (project glazing area / prototype glazing area — more physical
-    # for window-film savings since the delta is glazing-area-driven).
+    # Prototype-to-project rescale basis.
+    #   'hybrid'  (default, physically correct): baseline absolutes scale by
+    #             floor ratio; film deltas scale by glazing ratio.
+    #   'floor'   (EFILM convention): uniform floor-ratio scale on every field.
+    #             Under-claims on glazing-heavy projects.
+    #   'glazing' (uniform glazing-ratio scale): over-claims on glazing-light
+    #             projects since it scales internal loads by glazing too.
     # parser_bridge stamps BOTH factors onto the run's warnings either way.
-    scaling_basis: str = "floor"
+    scaling_basis: str = "hybrid"
     # Opt-in: add SplitFlux Daylighting:Controls to every zone that has a
     # window but no existing daylighting object. Models the lighting penalty a
     # low-VT film causes (more artificial light needed); without this, savings

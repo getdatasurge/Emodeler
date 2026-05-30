@@ -42,6 +42,29 @@ _SCALED_ENERGY_FIELDS = (
     "total_electricity_kwh", "total_gas_kwh",
 )
 
+# Window-film mutation only changes glazing. Cooling, heating, fans/pumps/
+# rejection, and (with daylighting) interior lighting respond; plug-load
+# equipment does not. Hybrid scaling uses this split so the film's *delta*
+# scales with glazing area while internal-load absolutes scale with floor.
+_FILM_AFFECTED_FIELDS = (
+    "cooling_elec_kwh",
+    "heating_elec_kwh",
+    "heating_gas_kwh",
+    "interior_lighting_kwh",
+    "fans_kwh",
+    "pumps_kwh",
+    "heat_rejection_kwh",
+)
+_FILM_UNAFFECTED_FIELDS = (
+    "interior_equipment_kwh",
+)
+# Fields summed to recompute total_electricity_kwh after a hybrid adjust.
+_ELEC_END_USE_FIELDS = (
+    "heating_elec_kwh", "cooling_elec_kwh",
+    "interior_lighting_kwh", "interior_equipment_kwh",
+    "fans_kwh", "pumps_kwh", "heat_rejection_kwh",
+)
+
 
 def _prototype_glazing_sf(meta: dict[str, Any]) -> float:
     """Estimate the DOE prototype's exterior glazing area from its meta
@@ -147,6 +170,100 @@ def _scale_run(rr: RunResult, factor: float) -> None:
         w.annual_solar_transmitted_kwh = round(
             w.annual_solar_transmitted_kwh * factor, 1
         )
+
+
+def _snapshot_run(rr: RunResult) -> dict[str, Any]:
+    """Capture every kWh field + peak demand + monthly profile a hybrid scaler
+    needs to re-derive a film run from the project-scaled baseline."""
+    eu = rr.annual_end_uses
+    return {
+        "fields": {f: getattr(eu, f, 0.0)
+                   for f in _FILM_AFFECTED_FIELDS + _FILM_UNAFFECTED_FIELDS
+                   + ("total_electricity_kwh", "total_gas_kwh")},
+        "peak_cool": rr.peak_demand.cooling_peak_kw,
+        "peak_total": rr.peak_demand.total_facility_peak_kw,
+        "monthly": list(rr.monthly_cooling_kwh),
+        "windows": {w.surface_name: w.annual_solar_transmitted_kwh for w in rr.windows},
+    }
+
+
+def _scale_runs_hybrid(
+    baseline_rr: RunResult,
+    film_rrs: list[RunResult],
+    appendix_g_rr: RunResult | None,
+    factors: dict[str, float],
+) -> None:
+    """Apply the physically-correct hybrid scaling and replace film fields:
+
+      * Internal-load absolutes + non-window cooling/heating share the
+        building's size, so the BASELINE scales by floor_factor.
+      * Window film only acts on glazing, so each FILM's *delta* vs the
+        prototype baseline scales by glazing_factor:
+
+            film'[X] = baseline_scaled[X] - (proto_baseline[X] - proto_film[X]) * glazing_factor
+
+        For fields a film cannot affect (plug-load equipment), film' just
+        equals baseline'.
+
+    This is the only basis that simultaneously honours "the building is
+    smaller than the prototype" and "the film only changes glass" — which is
+    what causes the under-claim a uniform floor-only scale produces on
+    glazing-heavy projects.
+    """
+    floor_f = factors["floor"]
+    glazing_f = factors["glazing"]
+    if floor_f == 1.0 and glazing_f == 1.0:
+        return
+
+    # Capture proto-level numbers BEFORE we mutate the baseline run.
+    proto_baseline = _snapshot_run(baseline_rr)
+    proto_films = [_snapshot_run(r) for r in film_rrs]
+
+    # Baseline absolutes use the floor factor.
+    _scale_run(baseline_rr, floor_f)
+    # Appendix G is its own prescriptive baseline; scale absolutes like the
+    # project baseline (whole-building floor scaling).
+    if appendix_g_rr is not None:
+        _scale_run(appendix_g_rr, floor_f)
+
+    # For each film, derive project-scale fields from the scaled baseline plus
+    # the prototype-level delta times the glazing factor.
+    for film_rr, proto_film in zip(film_rrs, proto_films):
+        eu = film_rr.annual_end_uses
+        for field in _FILM_AFFECTED_FIELDS:
+            proto_delta = proto_baseline["fields"][field] - proto_film["fields"][field]
+            baseline_scaled = getattr(baseline_rr.annual_end_uses, field, 0.0)
+            setattr(eu, field, round(baseline_scaled - proto_delta * glazing_f, 1))
+        for field in _FILM_UNAFFECTED_FIELDS:
+            # No film effect -> film equals baseline.
+            setattr(eu, field, getattr(baseline_rr.annual_end_uses, field, 0.0))
+        # Recompute totals from the new component fields.
+        eu.total_electricity_kwh = round(
+            sum(getattr(eu, f, 0.0) for f in _ELEC_END_USE_FIELDS), 1
+        )
+        eu.total_gas_kwh = round(getattr(eu, "heating_gas_kwh", 0.0), 1)
+        # Peak cooling: same pattern — film delta scales by glazing.
+        proto_peak_delta = proto_baseline["peak_cool"] - proto_film["peak_cool"]
+        film_rr.peak_demand.cooling_peak_kw = round(
+            baseline_rr.peak_demand.cooling_peak_kw - proto_peak_delta * glazing_f, 2
+        )
+        # Total facility peak: floor scale on the whole-building absolute.
+        film_rr.peak_demand.total_facility_peak_kw = round(
+            proto_film["peak_total"] * floor_f, 2
+        )
+        # Monthly cooling: project's monthly profile derives from the proto's
+        # film monthly profile, scaled the same way the annual cooling was.
+        proto_cool_b = proto_baseline["fields"]["cooling_elec_kwh"]
+        if film_rr.monthly_cooling_kwh and proto_cool_b > 0:
+            ratio = eu.cooling_elec_kwh / proto_cool_b
+            film_rr.monthly_cooling_kwh = [
+                round(v * ratio, 1) for v in proto_film["monthly"]
+            ] if proto_film["monthly"] else film_rr.monthly_cooling_kwh
+        # Per-orientation transmitted solar scales with glazing area.
+        for w in film_rr.windows:
+            w.annual_solar_transmitted_kwh = round(
+                w.annual_solar_transmitted_kwh * glazing_f, 1
+            )
 
 
 def _glazings_by_cardinal(project: EngineProject) -> dict[str, Any]:
@@ -258,20 +375,33 @@ def run_real_pipeline(
 
     assert baseline is not None
     factors = _scale_factors(project, meta)
-    basis = (project.options.scaling_basis or "floor").lower()
-    applied = factors.get(basis, factors["floor"])
-    if applied != 1.0:
-        runs_to_scale = [baseline, *film_runs]
-        if appendix_g_run is not None:
-            runs_to_scale.append(appendix_g_run)
-        for rr in runs_to_scale:
-            _scale_run(rr, applied)
-            rr.warnings.append(
-                f"Prototype-to-project scale: basis={basis} factor={applied:.4f} "
-                f"(floor {factors['floor']:.4f} = "
-                f"{factors['project_floor_sf']:.0f}/{factors['proto_floor_sf']:.0f} sf, "
-                f"glazing {factors['glazing']:.4f} = "
-                f"{factors['project_glazing_sf']:.0f}/{factors['proto_glazing_sf']:.0f} sf). "
-                "Applied uniformly to end-uses + peak demand + transmitted solar."
-            )
+    basis = (project.options.scaling_basis or "hybrid").lower()
+    runs_to_warn = [baseline, *film_runs]
+    if appendix_g_run is not None:
+        runs_to_warn.append(appendix_g_run)
+    if basis == "hybrid":
+        _scale_runs_hybrid(baseline, film_runs, appendix_g_run, factors)
+        warn = (
+            f"Prototype-to-project scale: basis=hybrid (baseline absolutes "
+            f"by floor factor {factors['floor']:.4f} = "
+            f"{factors['project_floor_sf']:.0f}/{factors['proto_floor_sf']:.0f} sf; "
+            f"film deltas by glazing factor {factors['glazing']:.4f} = "
+            f"{factors['project_glazing_sf']:.0f}/{factors['proto_glazing_sf']:.0f} sf). "
+            "Film effect is glazing-area-driven; internal loads are floor-area-driven."
+        )
+    else:
+        applied = factors.get(basis, factors["floor"])
+        if applied != 1.0:
+            for rr in runs_to_warn:
+                _scale_run(rr, applied)
+        warn = (
+            f"Prototype-to-project scale: basis={basis} factor={applied:.4f} "
+            f"(floor {factors['floor']:.4f} = "
+            f"{factors['project_floor_sf']:.0f}/{factors['proto_floor_sf']:.0f} sf, "
+            f"glazing {factors['glazing']:.4f} = "
+            f"{factors['project_glazing_sf']:.0f}/{factors['proto_glazing_sf']:.0f} sf). "
+            "Applied uniformly to end-uses + peak demand + transmitted solar."
+        )
+    for rr in runs_to_warn:
+        rr.warnings.append(warn)
     return "energyplus", baseline, film_runs, appendix_g_run

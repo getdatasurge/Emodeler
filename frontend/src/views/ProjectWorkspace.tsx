@@ -40,7 +40,7 @@ export function ProjectWorkspace({
   const [runError, setRunError] = useState<string | null>(null);
   const [result, setResult] = useState<{ comparison: Comparison; jobId: string } | null>(null);
   const [demandCharge, setDemandCharge] = useState('');
-  const [scalingBasis, setScalingBasis] = useState<'floor' | 'glazing'>('floor');
+  const [scalingBasis, setScalingBasis] = useState<'hybrid' | 'floor' | 'glazing'>('hybrid');
   const [includeAppendixG, setIncludeAppendixG] = useState(false);
   const pollRef = useRef<number | null>(null);
 
@@ -252,13 +252,20 @@ export function ProjectWorkspace({
               <Label>Scale prototype by</Label>
               <Select
                 value={scalingBasis}
-                onChange={(e) => setScalingBasis(e.target.value as 'floor' | 'glazing')}
+                onChange={(e) =>
+                  setScalingBasis(e.target.value as 'hybrid' | 'floor' | 'glazing')
+                }
               >
-                <option value="floor">Floor area (EFILM convention, default)</option>
-                <option value="glazing">Glazing area (more physical for film)</option>
+                <option value="hybrid">
+                  Hybrid (default — baseline by floor, film by glazing)
+                </option>
+                <option value="floor">Floor area (EFILM convention)</option>
+                <option value="glazing">Glazing area (uniform)</option>
               </Select>
               <p className="mt-1 text-xs text-ink/50">
-                The audit bundle stamps both factors regardless of which is applied.
+                Hybrid is the most physically correct: the film's savings scale
+                with glass area while internal loads track floor area. The audit
+                bundle stamps both factors regardless.
               </p>
             </div>
           </div>

@@ -180,7 +180,7 @@ export interface CalcOptions {
   utility_escalation: number;
   include_demand_charge?: boolean;
   demand_charge_usd_per_kw?: number;
-  scaling_basis?: 'floor' | 'glazing';
+  scaling_basis?: 'hybrid' | 'floor' | 'glazing';
   include_appendix_g_baseline?: boolean;
 }
 
