@@ -183,7 +183,13 @@ def _glazings_by_cardinal(project: EngineProject) -> dict[str, Any]:
     return out
 
 
-def run_real_pipeline(project: EngineProject) -> tuple[str, RunResult, list[RunResult]]:
+def run_real_pipeline(
+    project: EngineProject,
+) -> tuple[str, RunResult, list[RunResult], RunResult | None]:
+    """Run the real EnergyPlus pipeline. Returns (engine_mode, baseline_run,
+    film_runs, appendix_g_run). The 4th element is the ASHRAE 90.1-2019
+    Appendix G baseline run when CalcOptions.include_appendix_g_baseline=true,
+    else None — LEED EAc PCI compares the project against this anchor."""
     meta = datastore.get_prototype(project.building_type)
     if meta is None:
         raise prototype_loader.PrototypeNotFound(f"Unknown building_type {project.building_type!r}")
@@ -203,6 +209,7 @@ def run_real_pipeline(project: EngineProject) -> tuple[str, RunResult, list[RunR
 
     baseline: RunResult | None = None
     film_runs: list[RunResult] = []
+    appendix_g_run: RunResult | None = None
     with TemporaryDirectory() as tmp:
         for label, film in scenarios:
             idf = prototype_loader.load_idf(project.building_type, project.climate_zone)
@@ -223,12 +230,38 @@ def run_real_pipeline(project: EngineProject) -> tuple[str, RunResult, list[RunR
             else:
                 film_runs.append(rr)
 
+        # ASHRAE 90.1-2019 Appendix G baseline (LEED PCI anchor). One extra
+        # run with the prescriptive SimpleGlazing per the climate zone +
+        # baseline LPD per the building type.
+        if project.options.include_appendix_g_baseline:
+            from . import appendix_g
+
+            spec = appendix_g.baseline_spec(
+                project.building_type, project.climate_zone,
+                bldg.num_floors, project.gross_floor_area_sf,
+            )
+            idf = prototype_loader.load_idf(project.building_type, project.climate_zone)
+            appendix_g.build_baseline_idf(idf, spec)
+            scen_dir = Path(tmp) / "appG_baseline"
+            scen_dir.mkdir(parents=True, exist_ok=True)
+            idf_path = scen_dir / "appG_baseline.idf"
+            idf.saveas(str(idf_path))
+            runner.run_energyplus(idf_path, Path(epw), scen_dir)
+            run_output_dir = scen_dir / idf_path.stem
+            appendix_g_run = results.parse_run(
+                run_output_dir, "ASHRAE 90.1-2019 Appendix G", station=station,
+            )
+            _attach_window_solar(appendix_g_run, run_output_dir, scale=1.0)
+
     assert baseline is not None
     factors = _scale_factors(project, meta)
     basis = (project.options.scaling_basis or "floor").lower()
     applied = factors.get(basis, factors["floor"])
     if applied != 1.0:
-        for rr in [baseline, *film_runs]:
+        runs_to_scale = [baseline, *film_runs]
+        if appendix_g_run is not None:
+            runs_to_scale.append(appendix_g_run)
+        for rr in runs_to_scale:
             _scale_run(rr, applied)
             rr.warnings.append(
                 f"Prototype-to-project scale: basis={basis} factor={applied:.4f} "
@@ -238,4 +271,4 @@ def run_real_pipeline(project: EngineProject) -> tuple[str, RunResult, list[RunR
                 f"{factors['project_glazing_sf']:.0f}/{factors['proto_glazing_sf']:.0f} sf). "
                 "Applied uniformly to end-uses + peak demand + transmitted solar."
             )
-    return "energyplus", baseline, film_runs
+    return "energyplus", baseline, film_runs, appendix_g_run

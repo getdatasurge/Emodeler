@@ -126,6 +126,18 @@ def _citations_text(engine_project: EngineProject, comparison) -> str:
         + f"- Film life: {engine_project.options.film_life_yrs} yr; "
         f"discount {engine_project.options.discount_rate:.1%}; "
         f"utility escalation {engine_project.options.utility_escalation:.1%}\n"
+        + (
+            "\n## LEED PCI anchor (ASHRAE 90.1-2019 Appendix G)\n"
+            f"- Same prototype + weather rerun with prescriptive fenestration "
+            f"U={comparison.appendix_g.window_u_factor:.2f} BTU/h.ft^2.F, "
+            f"SHGC={comparison.appendix_g.window_shgc} (Table G3.4).\n"
+            f"- Project % total-electricity savings vs the Appendix G run: "
+            f"{comparison.appendix_g.pct_savings_vs_code_baseline}%\n"
+            f"- Project % cooling-electricity savings vs the Appendix G run: "
+            f"{comparison.appendix_g.cooling_pct_savings_vs_code_baseline}%\n"
+            if comparison.appendix_g is not None
+            else ""
+        )
     )
 
 
@@ -205,8 +217,11 @@ def run_job(job_id: str) -> None:
         engine_project = to_engine_project(project, opts)
 
         try:
-            mode, baseline, film_runs = runner.run_project(engine_project)
-            comparison = results.build_comparison(engine_project, baseline, film_runs, mode)
+            mode, baseline, film_runs, appendix_g_run = runner.run_project(engine_project)
+            comparison = results.build_comparison(
+                engine_project, baseline, film_runs, mode,
+                appendix_g_run=appendix_g_run,
+            )
             bundle_path = build_audit_bundle(job_id, engine_project, comparison)
 
             job.engine_mode = mode

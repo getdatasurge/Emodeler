@@ -65,12 +65,21 @@ def run_energyplus(idf_path: Path, weather_path: Path, output_dir: Path) -> str:
     return idf_path.stem
 
 
-def run_project(project: EngineProject) -> tuple[str, RunResult, list[RunResult]]:
+def run_project(
+    project: EngineProject,
+) -> tuple[str, RunResult, list[RunResult], RunResult | None]:
     """Run baseline + candidate scenarios. Falls back to the estimate engine when
-    EnergyPlus is unavailable (the expected beta path)."""
+    EnergyPlus is unavailable (the expected beta path).
+
+    Returns (engine_mode, baseline, film_runs, appendix_g_run). The 4th element
+    is the ASHRAE 90.1-2019 Appendix G baseline run when
+    CalcOptions.include_appendix_g_baseline=true AND the real EnergyPlus path is
+    taken; else None. The analytical-estimate fallback never produces an
+    Appendix G run (the spec calls for the unmodified DOE prototype + ASHRAE
+    140-validated engine, which the estimate is not)."""
     if not _energyplus_available():
         baseline, films = estimate.run_project(project)
-        return "analytical_estimate", baseline, films
+        return "analytical_estimate", baseline, films, None
 
     # Real EnergyPlus path. Requires bundled DOE prototype IDFs + eppy in the
     # worker image; integrated end-to-end in Phase 1 weeks 6-8 (spec Ch 11.5).
@@ -91,4 +100,4 @@ def run_project(project: EngineProject) -> tuple[str, RunResult, list[RunResult]
     baseline, films = estimate.run_project(project)
     for run in [baseline, *films]:
         run.warnings.append(detail)
-    return "analytical_estimate", baseline, films
+    return "analytical_estimate", baseline, films, None

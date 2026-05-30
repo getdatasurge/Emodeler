@@ -23,8 +23,10 @@ def _project(**kw):
 
 
 def _run(project):
-    mode, baseline, films = runner.run_project(project)
-    return mode, baseline, results.build_comparison(project, baseline, films, mode)
+    mode, baseline, films, appendix_g_run = runner.run_project(project)
+    return mode, baseline, results.build_comparison(
+        project, baseline, films, mode, appendix_g_run=appendix_g_run,
+    )
 
 
 def test_fx01_zephyrhills_plausible():

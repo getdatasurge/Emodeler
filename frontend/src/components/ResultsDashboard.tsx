@@ -78,6 +78,43 @@ function SolarCard({ baseline, after }: { baseline: RunResult; after: RunResult 
   );
 }
 
+function AppendixGCard({ comparison }: { comparison: Comparison }) {
+  const a = comparison.appendix_g;
+  if (!a) return null;
+  return (
+    <Card>
+      <h3 className="mb-1 font-semibold text-ink">LEED PCI anchor</h3>
+      <p className="mb-4 text-xs text-ink/50">
+        ASHRAE 90.1-2019 Appendix G baseline (prescriptive U {a.window_u_factor.toFixed(2)} BTU/h·ft²·F,
+        SHGC {a.window_shgc.toFixed(2)} per Table G3.4)
+      </p>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="rounded-md bg-amber/10 px-3 py-2.5">
+          <div className="text-2xl font-bold text-ink">
+            {a.pct_savings_vs_code_baseline.toFixed(1)}%
+          </div>
+          <div className="text-xs font-semibold uppercase tracking-wide text-ink/60">
+            Total electricity vs Appendix G
+          </div>
+        </div>
+        <div className="rounded-md bg-amber/10 px-3 py-2.5">
+          <div className="text-2xl font-bold text-ink">
+            {a.cooling_pct_savings_vs_code_baseline.toFixed(1)}%
+          </div>
+          <div className="text-xs font-semibold uppercase tracking-wide text-ink/60">
+            Cooling electricity vs Appendix G
+          </div>
+        </div>
+      </div>
+      <p className="mt-3 text-xs text-ink/50">
+        These percentages anchor LEED EAc credit calculations. The audit
+        bundle's CITATIONS.md records the exact prescriptive U/SHGC used.
+      </p>
+    </Card>
+  );
+}
+
+
 function SavingsCard({ comparison }: { comparison: Comparison }) {
   const results = comparison.films;
   const max = Math.max(1, ...results.map((r) => r.delta_cost_usd_per_year));
@@ -306,6 +343,8 @@ export function ResultsDashboard({
         <SavingsCard comparison={comparison} />
         <AssumptionsCard comparison={comparison} />
       </div>
+
+      {comparison.appendix_g && <AppendixGCard comparison={comparison} />}
 
       <Card>
         <h3 className="mb-3 font-semibold text-ink">Scenario comparison</h3>

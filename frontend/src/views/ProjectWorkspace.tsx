@@ -41,6 +41,7 @@ export function ProjectWorkspace({
   const [result, setResult] = useState<{ comparison: Comparison; jobId: string } | null>(null);
   const [demandCharge, setDemandCharge] = useState('');
   const [scalingBasis, setScalingBasis] = useState<'floor' | 'glazing'>('floor');
+  const [includeAppendixG, setIncludeAppendixG] = useState(false);
   const pollRef = useRef<number | null>(null);
 
   // Initial load of project + catalogs.
@@ -151,6 +152,7 @@ export function ProjectWorkspace({
           include_demand_charge: Number(demandCharge) > 0,
           demand_charge_usd_per_kw: Number(demandCharge) || 0,
           scaling_basis: scalingBasis,
+          include_appendix_g_baseline: includeAppendixG,
         },
       });
       startPolling(resp.job_id);
@@ -260,6 +262,22 @@ export function ProjectWorkspace({
               </p>
             </div>
           </div>
+          <label className="mb-4 inline-flex items-start gap-2 text-sm text-ink/80">
+            <input
+              type="checkbox"
+              className="mt-0.5"
+              checked={includeAppendixG}
+              onChange={(e) => setIncludeAppendixG(e.target.checked)}
+            />
+            <span>
+              Run ASHRAE 90.1-2019 Appendix G baseline (LEED PCI anchor) —
+              <span className="text-ink/50">
+                {' '}adds one extra simulation with the prescriptive U/SHGC for
+                your climate zone; the audit bundle stamps the % savings vs that
+                baseline. Adds ~3 min per analysis.
+              </span>
+            </span>
+          </label>
           <div className="flex items-center gap-4">
             <Button onClick={handleRun} disabled={isRunning}>
               {isRunning ? 'Running…' : 'Run Analysis'}

@@ -47,6 +47,6 @@ def test_run_project_surfaces_eplus_cause(monkeypatch):
 
     monkeypatch.setattr(pb, "run_real_pipeline", _boom)
 
-    mode, baseline, films = runner.run_project(_project())
+    mode, baseline, films, _appG = runner.run_project(_project())
     assert mode == "analytical_estimate"
     assert any("EnergyPlus run failed" in w and "bad glazing" in w for w in baseline.warnings)
