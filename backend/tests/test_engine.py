@@ -115,6 +115,32 @@ def test_window_conduction_and_orientation_peaks():
     assert by_orient["W"].peak_heat_gain_rate_w > by_orient["N"].peak_heat_gain_rate_w
 
 
+def test_intercardinal_orientations_drive_per_face_peaks():
+    """Surveyors record at the 8-point compass (NE/SE/SW/NW), not just cardinals.
+    The estimator must accept them, and per-face cooling-peak ordering must obey
+    SW > S (SW catches the afternoon cooling-system peak) and SW close to W."""
+    from energy_modeler.engine import building
+
+    proj = _project(
+        project_id="oct8", building_type="MediumOffice", climate_zone="2A",
+        gross_floor_area_sf=14500, zip="33540", utility_rate_usd_kwh=0.1145,
+        faces=[EngineFace(o, 500, "dbl_clear_3mm_13mmAir")
+               for o in ("N", "NE", "E", "SE", "S", "SW", "W", "NW")],
+        scenarios=[EngineScenario("Good", "3M-PR40X", 25000)],
+    )
+    _, baseline, _ = _run(proj)
+    peaks = {w.surface_name.split("_")[1]: w.peak_heat_gain_rate_w for w in baseline.windows}
+    # SW is the afternoon-peak face; it must beat S (sun has already moved past
+    # noon by the cooling-system peak hour) and sit close to W.
+    assert peaks["SW"] > peaks["S"]
+    assert abs(peaks["SW"] - peaks["W"]) < peaks["W"] * 0.30
+    # All 8 compass orientations resolved to a non-zero design peak.
+    for o in ("N", "NE", "E", "SE", "S", "SW", "W", "NW"):
+        assert peaks[o] > 0, f"{o} produced no peak heat gain"
+    # PEAK_POA table covers the 8-point compass without hitting the fallback.
+    assert all(o in building.PEAK_POA_W_M2 for o in ("NE", "SE", "SW", "NW"))
+
+
 def test_thinsulate_improves_u_factor_standard_film_does_not():
     from energy_modeler import datastore
     from energy_modeler.engine import glazing

@@ -84,6 +84,9 @@ def parse_run(
     )
 
 
+_KWH_PER_THERM = 29.3001  # 1 therm = 100,000 BTU; 1 kWh = 3412.14 BTU
+
+
 def build_comparison(
     project: EngineProject,
     baseline: RunResult,
@@ -91,6 +94,7 @@ def build_comparison(
     engine_mode: str,
 ) -> ProjectComparison:
     rate = project.utility_rate_usd_kwh
+    gas_rate = project.gas_rate_usd_therm  # $/therm; None -> gas dollars = 0
     opts = project.options
     films: list[FilmComparison] = []
 
@@ -105,6 +109,9 @@ def build_comparison(
         delta_heating = round(be.heating_elec_kwh - fe.heating_elec_kwh, 1)
         delta_lighting = round(be.interior_lighting_kwh - fe.interior_lighting_kwh, 1)
         delta_total = round(be.total_electricity_kwh - fe.total_electricity_kwh, 1)
+        # Gas savings in kWh-equivalent (1 therm = 29.3 kWh). Negative when the
+        # film slightly increases heating demand (the typical winter penalty).
+        delta_gas_kwh = round(be.total_gas_kwh - fe.total_gas_kwh, 1)
         delta_peak = round(
             baseline.peak_demand.cooling_peak_kw - run.peak_demand.cooling_peak_kw, 3
         )
@@ -113,7 +120,10 @@ def build_comparison(
             if opts.include_demand_charge
             else 0.0
         )
-        delta_cost = round(delta_total * rate + demand_savings, 2)
+        # Dollar savings = electric kWh saved at the elec rate + gas therms saved
+        # at the gas rate (when set) + optional demand-charge component.
+        gas_dollars = (delta_gas_kwh / _KWH_PER_THERM) * gas_rate if gas_rate else 0.0
+        delta_cost = round(delta_total * rate + gas_dollars + demand_savings, 2)
         delta_co2 = round(carbon.lb_co2_avoided(delta_total, project.zip), 1)
         delta_co2e = round(carbon.co2e_kg_avoided(delta_total, project.zip), 1)
 
@@ -140,6 +150,7 @@ def build_comparison(
                 delta_heating_kwh=delta_heating,
                 delta_lighting_kwh=delta_lighting,
                 delta_total_kwh=delta_total,
+                delta_gas_kwh=delta_gas_kwh,
                 delta_peak_kw=delta_peak,
                 delta_cost_usd_per_year=delta_cost,
                 delta_co2_lb_per_year=delta_co2,

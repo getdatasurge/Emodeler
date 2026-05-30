@@ -57,8 +57,20 @@ def city_for_zone(climate_zone: str) -> str | None:
     )
 
 # Representative cooling-design peak transmitted irradiance by orientation (W/m2).
-# West peaks highest (afternoon coincident with the cooling peak); north lowest.
-PEAK_POA_W_M2 = {"S": 480.0, "E": 620.0, "W": 700.0, "N": 180.0, "H": 880.0}
+# 8-point compass: West/SW peak (afternoon, coincident with the cooling-system
+# peak); North lowest. Intercardinals fall between their adjacent cardinals,
+# with SW close to W and SE close to E.
+PEAK_POA_W_M2 = {
+    "N":  180.0,
+    "NE": 260.0,
+    "E":  620.0,
+    "SE": 560.0,
+    "S":  480.0,
+    "SW": 700.0,
+    "W":  700.0,
+    "NW": 440.0,
+    "H":  880.0,
+}
 
 
 def zone_digit(climate_zone: str | None) -> str:
@@ -71,6 +83,7 @@ def conduction_kwh(u_btuhrft2F: float, area_sf: float, degree_days: float) -> fl
 
 
 def peak_poa(orientation: str) -> float:
+    # Unknown orientation -> mid-band (between N and S), conservative for sizing.
     return PEAK_POA_W_M2.get(orientation, 500.0)
 
 

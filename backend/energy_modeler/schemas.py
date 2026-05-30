@@ -58,6 +58,9 @@ class FilmComparison(BaseModel):
     delta_heating_kwh: float  # negative usually (winter penalty)
     delta_lighting_kwh: float = 0.0
     delta_total_kwh: float
+    # Heating-gas savings reported in kWh-equivalent (1 therm = 29.3 kWh). Priced
+    # separately at the project's gas rate when set; otherwise contributes $0.
+    delta_gas_kwh: float = 0.0
     delta_peak_kw: float
     delta_cost_usd_per_year: float
     delta_co2_lb_per_year: float

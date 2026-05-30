@@ -51,6 +51,8 @@ class Project(Base):
     utility_label: Mapped[str | None] = mapped_column(String)
     utility_rate_usd_kwh: Mapped[float] = mapped_column(Float, nullable=False)
     utility_rate_source: Mapped[str] = mapped_column(String, default="urdb")
+    # Optional gas rate ($/therm); when set, heating-gas savings are priced.
+    gas_rate_usd_therm: Mapped[float | None] = mapped_column(Float)
     egrid_subregion: Mapped[str] = mapped_column(String, nullable=False)
     # As-built building characterization (spec Ch 5.3). All optional: blank
     # values fall back to prototype / climate-zone defaults at calc time.
@@ -83,7 +85,7 @@ class Face(Base):
     __tablename__ = "faces"
     id: Mapped[str] = mapped_column(String, primary_key=True, default=_uuid)
     project_id: Mapped[str] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"))
-    orientation: Mapped[str] = mapped_column(String, nullable=False)  # N S E W H
+    orientation: Mapped[str] = mapped_column(String, nullable=False)  # 8-point: N NE E SE S SW W NW + H
     area_sqft: Mapped[float] = mapped_column(Float, nullable=False)
     base_glazing_id: Mapped[str] = mapped_column(String, nullable=False)
     count: Mapped[int] = mapped_column(Integer, default=1)

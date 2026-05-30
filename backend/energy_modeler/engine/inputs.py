@@ -7,7 +7,10 @@ from dataclasses import dataclass, field
 
 @dataclass
 class EngineFace:
-    orientation: str  # 'N' | 'S' | 'E' | 'W' | 'H'
+    # 8-point compass plus horizontal (skylights): N | NE | E | SE | S | SW | W | NW | H.
+    # Surveyors record at intercardinals (per the 3M/IWFA survey sheet); keeping
+    # that fidelity matters because SW catches the afternoon cooling peak.
+    orientation: str
     area_sqft: float
     base_glazing_id: str
 
@@ -38,6 +41,11 @@ class EngineProject:
     zip: str
     utility_rate_usd_kwh: float
     egrid_subregion: str
+    # Optional gas rate ($/therm). When set, heating-gas savings are priced
+    # separately; otherwise gas savings contribute $0 (the prior behavior, fine
+    # for all-electric buildings but materially wrong for gas-heated cold-climate
+    # projects).
+    gas_rate_usd_therm: float | None = None
     faces: list[EngineFace] = field(default_factory=list)
     scenarios: list[EngineScenario] = field(default_factory=list)
     options: EngineOptions = field(default_factory=EngineOptions)

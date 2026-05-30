@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { api } from '../api';
 import type { BaseGlazing, Project } from '../types';
 import { Button, ErrorBox, Label, Select, TextInput } from './ui';
 
-const ORIENTATIONS = ['N', 'S', 'E', 'W', 'H'];
+// 8-point compass (the resolution surveyors record at) + H for skylights.
+const ORIENTATIONS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW', 'H'];
 
 export function GlazingFaces({
   project,
@@ -22,9 +23,30 @@ export function GlazingFaces({
   const [count, setCount] = useState('1');
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [importMsg, setImportMsg] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement | null>(null);
 
   const glazingName = (id: string) =>
     baseGlazings.find((g) => g.id === id)?.display_name ?? id;
+
+  async function handleImport(file: File) {
+    setError(null);
+    setImportMsg(null);
+    setImporting(true);
+    try {
+      const res = await api.importSurvey(project.id, file, 'replace');
+      onProjectUpdate(res.project);
+      setImportMsg(
+        `Imported ${res.imported} face${res.imported === 1 ? '' : 's'} from ${file.name}.`,
+      );
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setImporting(false);
+      if (fileRef.current) fileRef.current.value = '';
+    }
+  }
 
   async function handleAdd() {
     setError(null);
@@ -55,6 +77,37 @@ export function GlazingFaces({
 
   return (
     <div>
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <p className="text-xs text-ink/60">
+          Add faces individually below, or import a 3M/IWFA survey workbook
+          (.xlsx) to populate them all at once.
+        </p>
+        <div className="flex items-center gap-2">
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".xlsx"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) void handleImport(f);
+            }}
+          />
+          <Button
+            variant="secondary"
+            disabled={importing}
+            onClick={() => fileRef.current?.click()}
+          >
+            {importing ? 'Importing…' : 'Import survey (.xlsx)'}
+          </Button>
+        </div>
+      </div>
+      {importMsg && (
+        <div className="mb-3 rounded-md bg-green-50 px-3 py-2 text-xs text-green-800">
+          {importMsg}
+        </div>
+      )}
+
       {project.faces.length > 0 ? (
         <div className="overflow-hidden rounded-md border border-ink/10">
           <table className="w-full text-sm">

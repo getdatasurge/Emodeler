@@ -31,5 +31,9 @@ boto3==1.35.90
 # eppy==0.5.63
 # geomeppy==0.5.7
 
+# Excel survey-sheet import (the IWFA window survey workbook). Pure-Python,
+# no native deps — fine in the slim image.
+openpyxl==3.1.5
+
 # Tests
 pytest==8.3.4
