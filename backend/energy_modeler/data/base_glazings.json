@@ -30,6 +30,30 @@
     "igsdb_construction": [102, "air_13mm", 102]
   },
   {
+    "id": "dbl_bronze_3mm_13mmAir", "display_name": "Dual pane bronze (3mm tinted / 13mm air / 3mm clear)",
+    "description": "Dual-pane IGU with a bronze-tinted outer pane. Common 1980s-90s commercial; surveyor 'Bronze'.",
+    "layer_count": 2, "u_factor_btuhrft2F": 0.49, "shgc": 0.48, "vt": 0.42,
+    "igsdb_construction": [2026, "air_13mm", 102]
+  },
+  {
+    "id": "dbl_grey_3mm_13mmAir", "display_name": "Dual pane grey (3mm tinted / 13mm air / 3mm clear)",
+    "description": "Dual-pane IGU with a grey-tinted outer pane. Very common commercial; surveyor 'Grey' / 'Gray'.",
+    "layer_count": 2, "u_factor_btuhrft2F": 0.49, "shgc": 0.50, "vt": 0.39,
+    "igsdb_construction": [2114, "air_13mm", 102]
+  },
+  {
+    "id": "dbl_green_3mm_13mmAir", "display_name": "Dual pane green (3mm tinted / 13mm air / 3mm clear)",
+    "description": "Dual-pane IGU with a green-tinted outer pane (high VT). Surveyor 'Green'.",
+    "layer_count": 2, "u_factor_btuhrft2F": 0.49, "shgc": 0.55, "vt": 0.65,
+    "igsdb_construction": [2118, "air_13mm", 102]
+  },
+  {
+    "id": "dbl_blue_3mm_13mmAir", "display_name": "Dual pane blue (3mm tinted / 13mm air / 3mm clear)",
+    "description": "Dual-pane IGU with a blue-tinted outer pane. Surveyor 'Blue'.",
+    "layer_count": 2, "u_factor_btuhrft2F": 0.49, "shgc": 0.50, "vt": 0.50,
+    "igsdb_construction": [2120, "air_13mm", 102]
+  },
+  {
     "id": "dbl_lowE_3mm_13mmAir", "display_name": "Dual pane low-E (3mm / 13mm air / 3mm low-E)",
     "description": "Dual-pane IGU with a soft-coat low-E on the inner pane #3 surface.",
     "layer_count": 2, "u_factor_btuhrft2F": 0.30, "shgc": 0.39, "vt": 0.70,

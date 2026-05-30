@@ -5,7 +5,11 @@ from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from sqlalchemy.orm import Session
 
 from energy_modeler.engine.inputs import BUILDING_FIELDS
-from energy_modeler.parser.survey_xlsx import parse_survey_xlsx
+from energy_modeler.parser.survey_xlsx import (
+    collapse_to_single_project,
+    group_by_building,
+    parse_survey_xlsx,
+)
 
 from .. import lookups
 from ..db import get_session
@@ -171,6 +175,11 @@ async def import_survey_xlsx(
             "error": "No usable rows found in survey sheet (need Compass + W + H per row).",
             "code": "SURVEY_EMPTY", "details": {"filename": file.filename}})
 
+    # Single-project mode: collapse across the building dimension so a portfolio
+    # workbook still produces one face per (orientation × glazing) for THIS
+    # project. Use /api/projects/import-survey-portfolio to split per building.
+    rows = collapse_to_single_project(rows)
+
     if mode == "replace":
         for f in list(project.faces):
             session.delete(f)
@@ -180,7 +189,7 @@ async def import_survey_xlsx(
         project.faces.append(Face(
             orientation=r.orientation, area_sqft=r.area_sqft,
             base_glazing_id=r.base_glazing_id, count=r.count,
-            notes=r.notes or note,
+            notes=f"{note} · {r.notes}" if r.notes else note,
         ))
     session.commit()
     return {
@@ -188,6 +197,77 @@ async def import_survey_xlsx(
         "mode": mode,
         "units": units,
         "project": _serialize(project),
+    }
+
+
+@router.post("/api/projects/import-survey-portfolio", status_code=201)
+async def import_survey_portfolio(
+    file: UploadFile = File(...),
+    zip: str = Query(..., min_length=5, max_length=10),  # noqa: A002 (matches Project field)
+    building_type: str = Query(...),
+    gross_floor_area_sf: float = Query(..., gt=0),
+    climate_zone: str | None = Query(None),
+    units: str = Query("in", pattern="^(in|ft)$"),
+    name_prefix: str = Query(""),
+    session: Session = Depends(get_session),
+):
+    """Create one Project per Building ID found in the survey workbook.
+
+    The template (zip / building_type / gross_floor_area_sf / climate_zone) is
+    applied to every created project; tune per-project after import. Useful for
+    a multi-school district uploaded as a single workbook (e.g. Millstone +
+    New Brunswick + Evesham). Returns the list of created project ids."""
+    content = await file.read()
+    try:
+        rows = parse_survey_xlsx(content, units=units)
+    except (ValueError, RuntimeError) as exc:
+        raise HTTPException(status_code=422, detail={
+            "error": str(exc), "code": "SURVEY_PARSE_FAILED",
+            "details": {"filename": file.filename}}) from exc
+    if not rows:
+        raise HTTPException(status_code=422, detail={
+            "error": "No usable rows found in survey sheet (need Compass + W + H per row).",
+            "code": "SURVEY_EMPTY", "details": {"filename": file.filename}})
+
+    by_building = group_by_building(rows)
+    z = lookups.resolve_zip(zip)
+    cz = climate_zone or (z.get("climate_zone") if z else None)
+    if not cz:
+        raise HTTPException(status_code=422, detail={
+            "error": "climate_zone required (ZIP not in crosswalk)",
+            "code": "VALIDATION_FAILED", "details": {"zip": zip}})
+    egrid = lookups.egrid_for_zip(zip)["subregion"]
+    utility = lookups.utility_for_zip(zip)["avg_energy_rate_usd_kwh"]
+    note = f"Imported from {file.filename}" if file.filename else "Imported from survey sheet"
+
+    created: list[dict] = []
+    for building_id, building_rows in by_building.items():
+        proj_name = f"{name_prefix}{building_id}" if name_prefix else building_id
+        project = Project(
+            name=proj_name, zip=zip,
+            latitude=(z["lat"] if z else None), longitude=(z["lon"] if z else None),
+            climate_zone=cz, building_type=building_type,
+            gross_floor_area_sf=gross_floor_area_sf,
+            utility_rate_usd_kwh=utility, utility_rate_source="urdb_default",
+            egrid_subregion=egrid,
+        )
+        for r in building_rows:
+            project.faces.append(Face(
+                orientation=r.orientation, area_sqft=r.area_sqft,
+                base_glazing_id=r.base_glazing_id, count=r.count,
+                notes=f"{note} · {r.notes}" if r.notes else note,
+            ))
+        session.add(project)
+        session.flush()
+        created.append({
+            "id": project.id, "name": project.name,
+            "faces_imported": len(building_rows),
+        })
+    session.commit()
+    return {
+        "created": len(created),
+        "units": units,
+        "projects": created,
     }
 
 

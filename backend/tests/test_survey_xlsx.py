@@ -9,7 +9,12 @@ import pytest
 
 openpyxl = pytest.importorskip("openpyxl")
 
-from energy_modeler.parser.survey_xlsx import parse_survey_xlsx  # noqa: E402
+from energy_modeler.parser.survey_xlsx import (  # noqa: E402
+    GLASS_COLOR_TO_GLAZING_ID,
+    collapse_to_single_project,
+    group_by_building,
+    parse_survey_xlsx,
+)
 
 
 def _make_workbook(rows: list[list]) -> bytes:
@@ -90,6 +95,78 @@ def test_missing_required_column_raises():
     rows = [["Building ID", "Glass Color?", "Compass"]]  # no W / H
     with pytest.raises(ValueError, match="missing required column"):
         parse_survey_xlsx(_make_workbook(rows))
+
+
+def test_glass_color_maps_to_tinted_base_glazings():
+    rows = [
+        HEADER,
+        # Bronze SE windows.
+        ["Building A", 1, 1, 1, None, "Outside", "Bronze", "SE", None, None, 30, 30],
+        # Same elevation, same color (fills down), same building (fills down).
+        [None, None, None, None, None, None, None, None, None, None, 40, 40],
+        # Switch to clear glass on the S elevation.
+        [None, None, 2, 1, None, None, "Clear", "S", None, None, 24, 36],
+        # Grey (American spelling 'Gray' should also resolve).
+        [None, None, 3, 1, None, None, "Gray", "W", None, None, 20, 20],
+    ]
+    out = parse_survey_xlsx(_make_workbook(rows))
+    by = {(r.orientation, r.base_glazing_id): r for r in out}
+    assert by[("SE", "dbl_bronze_3mm_13mmAir")].count == 2
+    assert by[("S", "dbl_clear_3mm_13mmAir")].count == 1
+    assert by[("W", "dbl_grey_3mm_13mmAir")].count == 1
+    # Every catalog color resolves to a real entry id (no typos in the map).
+    assert all(v.startswith("dbl_") for v in GLASS_COLOR_TO_GLAZING_ID.values())
+
+
+def test_building_dimension_keeps_rows_separate_until_grouped():
+    rows = [
+        HEADER,
+        ["Millstone Elementary", 1, 1, 1, None, None, "Clear", "S", None, None, 30, 30],
+        # Second building, same orientation + glazing -> separate bucket pre-grouping.
+        ["New Brunswick Middle", 1, 1, 1, None, None, "Clear", "S", None, None, 30, 30],
+    ]
+    out = parse_survey_xlsx(_make_workbook(rows))
+    assert len(out) == 2
+    assert {r.building_id for r in out} == {"Millstone Elementary", "New Brunswick Middle"}
+    grouped = group_by_building(out)
+    assert set(grouped.keys()) == {"Millstone Elementary", "New Brunswick Middle"}
+    assert all(len(v) == 1 for v in grouped.values())
+
+
+def test_collapse_merges_buildings_and_dedupes_notes():
+    rows = [
+        HEADER,
+        ["Bldg A", 1, 1, 1, None, None, "Clear", "S", None, None, 30, 30],
+        ["Bldg B", 2, 5, 2, None, None, "Clear", "S", None, None, 40, 40],
+    ]
+    out = parse_survey_xlsx(_make_workbook(rows))
+    assert len(out) == 2  # two buildings, same orientation
+    collapsed = collapse_to_single_project(out)
+    assert len(collapsed) == 1  # single (S, clear) face after collapse
+    face = collapsed[0]
+    assert face.orientation == "S" and face.base_glazing_id == "dbl_clear_3mm_13mmAir"
+    # Area is the sum of both buildings.
+    assert face.area_sqft == pytest.approx((30 * 30 + 40 * 40) / 144.0, abs=0.05)
+    # Notes carry the building list.
+    assert face.notes is not None
+    assert "Bldg A" in face.notes and "Bldg B" in face.notes
+
+
+def test_notes_capture_floor_map_zone_for_audit_trail():
+    rows = [
+        HEADER,
+        [None, 1, 1, 1, None, None, "Clear", "S", None, None, 30, 30],
+        [None, 1, 3, 1, None, None, None,    None, None, None, 40, 30],
+        [None, 2, 6, 2, None, None, None,    None, None, None, 20, 20],
+    ]
+    out = parse_survey_xlsx(_make_workbook(rows))
+    assert len(out) == 1
+    face = out[0]
+    # 3 distinct floor / map / zone values get recorded for the bucket.
+    assert face.notes is not None
+    assert "Floors: 1, 2" in face.notes
+    assert "Maps: 1, 3, 6" in face.notes
+    assert "Zones: 1, 2" in face.notes
 
 
 def test_resolves_sheet_when_renamed():
