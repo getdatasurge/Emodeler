@@ -41,6 +41,10 @@ _FAN_CLASSES = (
 _CFM_TO_M3S = 0.000471947
 
 
+def _f_to_c(temp_f: float) -> float:
+    return (temp_f - 32.0) * 5.0 / 9.0
+
+
 def _set_first_present(obj: Any, fields: tuple[str, ...], value: float) -> bool:
     for f in fields:
         if hasattr(obj, f):
@@ -66,6 +70,34 @@ def set_heating_cop(idf: Any, cop: float) -> int:
         for coil in idf.idfobjects.get(cls, []):
             if _set_first_present(coil, _HEATING_COP_FIELDS, cop):
                 n += 1
+    return n
+
+
+def set_economizer_high_limit_f(idf: Any, high_limit_f: float) -> int:
+    """Enable a fixed-dry-bulb economizer with the supplied high-limit
+    temperature on every Controller:OutdoorAir. EnergyPlus stores the limit
+    in degrees C; the user faces F (the building-engineer-friendly unit).
+
+    No-op when high_limit_f is None / 0 / negative. Returns the number of
+    controllers touched. Many DOE prototypes ship NoEconomizer (the 90.1
+    minimum-compliant default) — flipping this on is one of the cheapest
+    cooling-savings levers and a common as-built override."""
+    if not high_limit_f or high_limit_f <= 0:
+        return 0
+    high_limit_c = round(_f_to_c(high_limit_f), 2)
+    n = 0
+    for ctrl in idf.idfobjects.get("CONTROLLER:OUTDOORAIR", []):
+        existing = (getattr(ctrl, "Economizer_Control_Type", "") or "").strip()
+        # Don't downgrade richer schemes (enthalpy / differential dry-bulb);
+        # only enable when the prototype was "NoEconomizer".
+        if existing.lower() in ("", "noeconomizer"):
+            ctrl.Economizer_Control_Type = "FixedDryBulb"
+        if hasattr(ctrl, "Economizer_Maximum_Limit_DryBulb_Temperature"):
+            ctrl.Economizer_Maximum_Limit_DryBulb_Temperature = high_limit_c
+            n += 1
+        elif hasattr(ctrl, "Economizer_Maximum_Limit_Dry_Bulb_Temperature"):
+            ctrl.Economizer_Maximum_Limit_Dry_Bulb_Temperature = high_limit_c
+            n += 1
     return n
 
 

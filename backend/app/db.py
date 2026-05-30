@@ -30,6 +30,7 @@ SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False
 _PENDING_COLUMNS: tuple[tuple[str, str, str], ...] = (
     ("projects", "gas_rate_usd_therm", "FLOAT"),
     ("projects", "hvac_fan_kw_per_cfm", "FLOAT"),
+    ("projects", "hvac_economizer_high_limit_f", "FLOAT"),
 )
 
 

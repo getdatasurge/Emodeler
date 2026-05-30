@@ -95,6 +95,9 @@ class ResolvedBuilding:
     # Optional fan-power override (kW/CFM). None -> the prototype's Pressure_Rise
     # stands; otherwise idf_ops.set_fan_kw_per_cfm rescales each Fan:* object.
     hvac_fan_kw_per_cfm: float | None
+    # Optional economizer high-limit dry-bulb (deg F). When set, flips every
+    # NoEconomizer Controller:OutdoorAir to FixedDryBulb at that limit.
+    hvac_economizer_high_limit_f: float | None
     num_floors: int
     floor_to_floor_ft: float
     wall_area_sf: float
@@ -146,6 +149,11 @@ def resolve(project, proto: dict) -> ResolvedBuilding:
         hvac_fan_kw_per_cfm=(
             float(project.hvac_fan_kw_per_cfm)
             if project.hvac_fan_kw_per_cfm is not None
+            else None
+        ),
+        hvac_economizer_high_limit_f=(
+            float(project.hvac_economizer_high_limit_f)
+            if project.hvac_economizer_high_limit_f is not None
             else None
         ),
         num_floors=floors,

@@ -89,3 +89,45 @@ def test_set_fan_kw_per_cfm_uses_design_pressure_rise_for_fan_systemmodel():
     assert n == 1
     expected = (0.0005 * 1000.0 / 0.000471947) * 0.7
     assert abs(fan.Design_Pressure_Rise - expected) < 1.0
+
+
+def test_set_economizer_flips_no_economizer_to_fixed_drybulb():
+    """A DOE prototype defaulting to NoEconomizer gets switched to FixedDryBulb
+    at the user-supplied F limit; F->C conversion is applied."""
+    ctrl = types.SimpleNamespace(
+        Economizer_Control_Type="NoEconomizer",
+        Economizer_Maximum_Limit_DryBulb_Temperature=None,
+    )
+    idf = types.SimpleNamespace(idfobjects={"CONTROLLER:OUTDOORAIR": [ctrl]})
+    n = idf_ops.set_economizer_high_limit_f(idf, 70.0)
+    assert n == 1
+    assert ctrl.Economizer_Control_Type == "FixedDryBulb"
+    # 70 F = 21.11 C
+    assert abs(ctrl.Economizer_Maximum_Limit_DryBulb_Temperature - 21.11) < 0.05
+
+
+def test_set_economizer_preserves_richer_schemes():
+    """Don't downgrade DifferentialEnthalpy / DifferentialDryBulb to FixedDryBulb
+    just because the user wanted a high-limit on the simpler default."""
+    ctrl = types.SimpleNamespace(
+        Economizer_Control_Type="DifferentialEnthalpy",
+        Economizer_Maximum_Limit_DryBulb_Temperature=22.0,
+    )
+    idf = types.SimpleNamespace(idfobjects={"CONTROLLER:OUTDOORAIR": [ctrl]})
+    idf_ops.set_economizer_high_limit_f(idf, 75.0)
+    assert ctrl.Economizer_Control_Type == "DifferentialEnthalpy"  # unchanged
+    # The high-limit still updates.
+    assert abs(ctrl.Economizer_Maximum_Limit_DryBulb_Temperature - 23.89) < 0.05
+
+
+def test_set_economizer_no_op_on_missing_or_invalid_value():
+    ctrl = types.SimpleNamespace(
+        Economizer_Control_Type="NoEconomizer",
+        Economizer_Maximum_Limit_DryBulb_Temperature=None,
+    )
+    idf = types.SimpleNamespace(idfobjects={"CONTROLLER:OUTDOORAIR": [ctrl]})
+    assert idf_ops.set_economizer_high_limit_f(idf, None) == 0
+    assert idf_ops.set_economizer_high_limit_f(idf, 0) == 0
+    assert idf_ops.set_economizer_high_limit_f(idf, -5) == 0
+    # Untouched on no-op.
+    assert ctrl.Economizer_Control_Type == "NoEconomizer"

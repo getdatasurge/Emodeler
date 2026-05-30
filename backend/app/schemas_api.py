@@ -28,6 +28,8 @@ class BuildingInputs(BaseModel):
     # Supply-fan electrical power per CFM (kW/CFM). Optional; when set, the
     # IDF mutator scales each Fan:* object's Pressure_Rise to hit the target.
     hvac_fan_kw_per_cfm: float | None = Field(default=None, gt=0, le=0.01)
+    # Economizer high-limit dry-bulb (deg F). Common settings: 65-75 F.
+    hvac_economizer_high_limit_f: float | None = Field(default=None, gt=40, le=110)
     wall_area_sf: float | None = Field(default=None, ge=0)
     wall_u_factor: float | None = Field(default=None, gt=0, le=2)
     wall_absorptance: float | None = Field(default=None, ge=0, le=1)

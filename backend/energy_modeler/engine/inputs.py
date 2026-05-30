@@ -68,6 +68,10 @@ class EngineProject:
     # object's Pressure_Rise to achieve the target while preserving its
     # Fan_Total_Efficiency.
     hvac_fan_kw_per_cfm: float | None = None
+    # Economizer high-limit dry-bulb (deg F). When set, every NoEconomizer
+    # Controller:OutdoorAir is flipped to FixedDryBulb at this temperature —
+    # one of the cheapest cooling-savings levers on commercial prototypes.
+    hvac_economizer_high_limit_f: float | None = None
     # Opaque envelope
     wall_area_sf: float | None = None
     wall_u_factor: float | None = None
@@ -89,6 +93,7 @@ BUILDING_FIELDS: tuple[str, ...] = (
     "hvac_heating_cop",
     "hvac_system_type",
     "hvac_fan_kw_per_cfm",
+    "hvac_economizer_high_limit_f",
     "wall_area_sf",
     "wall_u_factor",
     "wall_absorptance",
